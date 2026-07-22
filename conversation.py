@@ -78,7 +78,7 @@ async def choose_role(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["role"] = role
 
     if role == "🏭 Warehouse Engineer":
-        prompt = "🏢 Enter Warehouse / Engineer Name:"
+        prompt = "🏢 Enter Warehouse Name:"
     else:
         prompt = "👤 Enter Technician Name:"
 

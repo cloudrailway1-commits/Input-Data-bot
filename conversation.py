@@ -24,13 +24,17 @@ from questions import QUESTIONS, TOTAL_QUESTIONS
 from keyboards import (
     ROLE_KEYBOARD,
     FINISH_KEYBOARD,
+    AFTER_REGISTER_KEYBOARD,
+    AFTER_REPORT_KEYBOARD,
+    SAME_DIFFERENT_KEYBOARD,
+    SAME_RFC_KEYBOARD,
 )
 
 # ==========================================================
 # Conversation States
 # ==========================================================
 
-ROLE, NAME, RFC, QUESTION, RESTART = range(5)
+ROLE, NAME, RFC, QUESTION, RESTART, AFTER_REGISTER, AFTER_REPORT = range(7)
 
 # ==========================================================
 # /start
@@ -142,6 +146,7 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ------------------------------------------
         # Warehouse Engineer
         # ------------------------------------------
+        # Warehouse Engineer
         if role == "🏭 Warehouse Engineer":
             if rfc_exists(rfc):
                 await update.message.reply_text(
@@ -149,13 +154,11 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return RFC
 
-            # Add new RFC
             add_rfc(
                 rfc,
                 context.user_data.get("name", "Unknown"),
             )
 
-            # Fetch updated list of registered RFCs to display AFTER adding
             all_rfcs = get_all_rfcs_with_warehouse()
             formatted_list = "\n".join(
                 [f"• *{item[0]}* — Warehouse: {item[1]}" for item in all_rfcs]
@@ -165,14 +168,45 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"✅ RFC *{rfc}* successfully registered!\n\n"
                 f"📋 *Current Registered RFCs & Warehouses:*\n"
                 f"{formatted_list}\n\n"
-                f"What would you like to do next?",
+                f"Choose an option below:",
                 parse_mode="Markdown",
-                reply_markup=FINISH_KEYBOARD,
+                reply_markup=AFTER_REGISTER_KEYBOARD,
             )
 
-            context.user_data.clear()
-            return RESTART
+            return AFTER_REGISTER
 
+        async def handle_after_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            choice = update.message.text.strip()
+
+            if choice == "➕ Add More RFC":
+                await update.message.reply_text(
+                    f"Current Warehouse Name: *{context.user_data.get('name')}*\n\n"
+                    "Do you want to use the same Warehouse name or a different one?",
+                    parse_mode="Markdown",
+                    reply_markup=SAME_DIFFERENT_KEYBOARD,
+                )
+                return AFTER_REGISTER
+
+            if choice == "🔄 Use Same Name":
+                await update.message.reply_text("📄 Enter new RFC ID to register:", reply_markup=ReplyKeyboardRemove())
+                return RFC
+
+            if choice == "✍️ Use Different Name":
+                await update.message.reply_text("🏢 Enter Warehouse / Engineer Name:", reply_markup=ReplyKeyboardRemove())
+                return NAME
+
+            if choice == "⬅️ Back to Main Menu":
+                context.user_data.clear()
+                await update.message.reply_text(
+                    "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
+                    parse_mode="Markdown",
+                    reply_markup=ROLE_KEYBOARD,
+                )
+                return ROLE
+
+            await update.message.reply_text("Please use the buttons provided.", reply_markup=AFTER_REGISTER_KEYBOARD)
+            return AFTER_REGISTER
+            
         # ------------------------------------------
         # Technician
         # ------------------------------------------
@@ -268,11 +302,6 @@ async def ask_questions(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return await finish(update, context)
 
-
-# ==========================================================
-# Finish Report
-# ==========================================================
-
 # ==========================================================
 # Finish Report
 # ==========================================================
@@ -286,14 +315,10 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
         row = find_rfc(rfc)
 
         if row is None:
-            await update.message.reply_text(
-                "❌ RFC no longer exists.",
-                reply_markup=FINISH_KEYBOARD,
-            )
+            await update.message.reply_text("❌ RFC no longer exists.", reply_markup=FINISH_KEYBOARD)
             context.user_data.clear()
             return RESTART
 
-        # Save technician name + all material answers into Google Sheets
         update_row_answers(
             row=row,
             technician=technician_name,
@@ -302,21 +327,64 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(
             f"✅ Report submitted successfully for Technician *{technician_name}*!\n\n"
-            "Choose your next action.",
+            f"Choose what to do next:",
             parse_mode="Markdown",
-            reply_markup=FINISH_KEYBOARD,
+            reply_markup=AFTER_REPORT_KEYBOARD,
         )
 
-        context.user_data.clear()
-        return RESTART
+        return AFTER_REPORT
 
     except Exception as e:
-        await update.message.reply_text(
-            f"❌ Failed to save report.\n\n{e}",
-            reply_markup=FINISH_KEYBOARD,
-        )
+        await update.message.reply_text(f"❌ Failed to save report.\n\n{e}", reply_markup=FINISH_KEYBOARD)
         context.user_data.clear()
         return RESTART
+
+async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    choice = update.message.text.strip()
+
+    if choice == "📋 Submit Another Report":
+        await update.message.reply_text(
+            f"Current RFC ID: *{context.user_data.get('rfc')}*\n\n"
+            "Do you want to work on the same RFC or select a different one?",
+            parse_mode="Markdown",
+            reply_markup=SAME_RFC_KEYBOARD,
+        )
+        return AFTER_REPORT
+
+    if choice == "📑 Use Same RFC":
+        # Reset question index and answers
+        context.user_data["answers"] = []
+        context.user_data["question_index"] = 0
+        question = QUESTIONS[0][0]
+
+        await update.message.reply_text(
+            f"Question 1/{TOTAL_QUESTIONS}\n\n{question}:",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return QUESTION
+
+    if choice == "📄 Use Different RFC":
+        available_list = get_available_rfcs()
+        if available_list:
+            formatted_list = "\n".join([f"• *{item[0]}* — Warehouse: {item[1]}" for item in available_list])
+            msg = f"📋 *Available RFCs & Warehouses:*\n\n{formatted_list}\n\n📄 Enter RFC ID:"
+        else:
+            msg = "⚠️ No active RFCs available. Enter RFC ID manually:"
+
+        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+        return RFC
+
+    if choice == "⬅️ Back to Main Menu":
+        context.user_data.clear()
+        await update.message.reply_text(
+            "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
+            parse_mode="Markdown",
+            reply_markup=ROLE_KEYBOARD,
+        )
+        return ROLE
+
+    await update.message.reply_text("Please use the buttons provided.", reply_markup=AFTER_REPORT_KEYBOARD)
+    return AFTER_REPORT
 
 
 # ==========================================================
@@ -404,6 +472,19 @@ conversation_handler = ConversationHandler(
             MessageHandler(
                 filters.TEXT & ~filters.COMMAND,
                 restart_menu,
+            )
+        ],
+        AFTER_REGISTER: [
+            MessageHandler(
+                filters.TEXT & ~filters.COMMAND,
+                handle_after_register,
+            )
+        ],
+
+        AFTER_REPORT: [
+            MessageHandler(
+                filters.TEXT & ~filters.COMMAND,
+                handle_after_report,
             )
         ],
     },

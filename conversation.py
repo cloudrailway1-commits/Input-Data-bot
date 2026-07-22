@@ -121,7 +121,7 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             msg = (
                 "⚠️ No active RFCs are currently available.\n\n"
-                "Please ask the Warehouse Engineer to register an RFC first, or type the RFC ID directly:"
+                "Please ask the Warehouse Engineer to register an RFC first"
             )
         
         await update.message.reply_text(msg, parse_mode="Markdown")

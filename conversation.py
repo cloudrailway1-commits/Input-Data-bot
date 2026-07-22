@@ -29,6 +29,7 @@ from keyboards import (
     AFTER_REPORT_KEYBOARD,
     SAME_DIFFERENT_KEYBOARD,
     SAME_RFC_KEYBOARD,
+    RFC_NOT_FOUND_KEYBOARD, 
 )
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
 # Conversation States
 # ==========================================================
 
-ROLE, NAME, RFC, QUESTION, RESTART, AFTER_REGISTER, AFTER_REPORT = range(7)
+ROLE, NAME, RFC, QUESTION, RESTART, AFTER_REGISTER, AFTER_REPORT, RFC_NOT_FOUND = range(8)
 
 # ==========================================================
 # /start
@@ -173,10 +174,12 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Technician Flow
         if not rfc_exists(rfc):
             await update.message.reply_text(
-                f"❌ RFC *{rfc}* not found. Please double-check the RFC ID and try again.",
+                f"❌ RFC *{rfc}* not found in the sheet.\n\n"
+                "Please choose an option below or type another RFC ID directly:",
                 parse_mode="Markdown",
+                reply_markup=RFC_NOT_FOUND_KEYBOARD,
             )
-            return RFC
+            return RFC_NOT_FOUND
 
         context.user_data["rfc"] = rfc
         context.user_data["answers"] = []
@@ -196,6 +199,50 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"⚠️ Error: {e}")
         return RFC
+
+# ==========================================================
+# Handle RFC Not Found Options
+# ==========================================================
+
+async def handle_rfc_not_found(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+
+    if text == "✍️ Try Another RFC":
+        available_list = get_available_rfcs()
+        if available_list:
+            formatted_list = "\n".join(
+                [f"• *{item[0]}* — Warehouse: {item[1]}" for item in available_list]
+            )
+            msg = f"📋 *Available RFCs & Warehouses:*\n\n{formatted_list}\n\n📄 Enter RFC ID:"
+        else:
+            msg = "📄 Please enter the RFC ID:"
+
+        await update.message.reply_text(
+            msg,
+            parse_mode="Markdown",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return RFC
+
+    if text == "🔄 Change Name":
+        await update.message.reply_text(
+            "👤 Enter Technician Name:",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return NAME
+
+    if text == "⬅️ Back to Main Menu":
+        context.user_data.clear()
+        await update.message.reply_text(
+            "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
+            parse_mode="Markdown",
+            reply_markup=ROLE_KEYBOARD,
+        )
+        return ROLE
+
+    # If the user directly typed an RFC ID instead of clicking a button:
+    context.user_data["typed_rfc"] = text
+    return await ask_rfc(update, context)
 
 
 # ==========================================================
@@ -405,6 +452,7 @@ conversation_handler = ConversationHandler(
         RESTART: [MessageHandler(filters.TEXT & ~filters.COMMAND, restart_menu)],
         AFTER_REGISTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_after_register)],
         AFTER_REPORT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_after_report)],
+        RFC_NOT_FOUND: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_rfc_not_found)],
     },
     fallbacks=[
         CommandHandler("cancel", cancel),

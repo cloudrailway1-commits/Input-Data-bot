@@ -14,6 +14,7 @@ from database import (
     add_rfc,
     rfc_exists,
     get_available_rfcs,
+    get_all_rfcs_with_warehouse,
     find_rfc,
     update_row_answers,
 )
@@ -96,11 +97,36 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return NAME
 
     context.user_data["name"] = name
+    role = context.user_data.get("role", "")
 
-    await update.message.reply_text(
-        "📄 Enter RFC ID:"
-    )
+    # ------------------------------------------
+    # For Technician: Show available RFC list BEFORE asking for RFC ID
+    # ------------------------------------------
+    if role == "🛠 Technician":
+        available_list = get_available_rfcs()
 
+        if available_list:
+            formatted_list = "\n".join(
+                [f"• *{item[0]}* — Warehouse: {item[1]}" for item in available_list]
+            )
+            msg = (
+                f"📋 *Available RFCs & Warehouses:*\n\n"
+                f"{formatted_list}\n\n"
+                f"📄 Please enter the RFC ID you want to work on:"
+            )
+        else:
+            msg = (
+                "⚠️ No active RFCs are currently available.\n\n"
+                "Please ask the Warehouse Engineer to register an RFC first, or type the RFC ID directly:"
+            )
+        
+        await update.message.reply_text(msg, parse_mode="Markdown")
+        return RFC
+
+    # ------------------------------------------
+    # For Warehouse Engineer
+    # ------------------------------------------
+    await update.message.reply_text("📄 Enter new RFC ID to register:")
     return RFC
 
 
@@ -109,33 +135,73 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================================================
 
 async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rfc = update.message.text.strip().upper()
-    role = context.user_data["role"]
+    try:
+        rfc = update.message.text.strip().upper()
+        role = context.user_data.get("role", "")
 
-    # ------------------------------------------
-    # Warehouse Engineer
-    # ------------------------------------------
-    if role == "🏭 Warehouse Engineer":
-        if rfc_exists(rfc):
+        # ------------------------------------------
+        # Warehouse Engineer
+        # ------------------------------------------
+        if role == "🏭 Warehouse Engineer":
+            if rfc_exists(rfc):
+                await update.message.reply_text(
+                    "❌ RFC already exists.\n\nPlease enter another RFC."
+                )
+                return RFC
+
+            # Add new RFC
+            add_rfc(
+                rfc,
+                context.user_data.get("name", "Unknown"),
+            )
+
+            # Fetch updated list of registered RFCs to display AFTER adding
+            all_rfcs = get_all_rfcs_with_warehouse()
+            formatted_list = "\n".join(
+                [f"• *{item[0]}* — Warehouse: {item[1]}" for item in all_rfcs]
+            )
+
             await update.message.reply_text(
-                "❌ RFC already exists.\n\nPlease enter another RFC."
+                f"✅ RFC *{rfc}* successfully registered!\n\n"
+                f"📋 *Current Registered RFCs & Warehouses:*\n"
+                f"{formatted_list}\n\n"
+                f"What would you like to do next?",
+                parse_mode="Markdown",
+                reply_markup=FINISH_KEYBOARD,
+            )
+
+            context.user_data.clear()
+            return RESTART
+
+        # ------------------------------------------
+        # Technician
+        # ------------------------------------------
+        if not rfc_exists(rfc):
+            await update.message.reply_text(
+                f"❌ RFC *{rfc}* not found. Please double-check the RFC ID and try again:",
+                parse_mode="Markdown",
             )
             return RFC
 
-        add_rfc(
-            rfc,
-            context.user_data["name"],
-        )
+        # Valid RFC found -> Proceed to questions
+        context.user_data["rfc"] = rfc
+        context.user_data["answers"] = []
+        context.user_data["question_index"] = 0
+
+        question = QUESTIONS[0][0]
 
         await update.message.reply_text(
-            "✅ RFC successfully registered.\n\n"
-            "What would you like to do next?",
-            reply_markup=FINISH_KEYBOARD,
+            f"✅ RFC ID *{rfc}* verified.\n\n"
+            f"Question 1/{TOTAL_QUESTIONS}\n\n"
+            f"{question}:",
+            parse_mode="Markdown",
         )
 
-        context.user_data.clear()
-        return RESTART
+        return QUESTION
 
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Error: {e}")
+        return RFC
     # ------------------------------------------
     # Technician
     # ------------------------------------------

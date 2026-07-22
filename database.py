@@ -202,25 +202,37 @@ if __name__ == "__main__":
 
 def get_available_rfcs():
     """
-    Returns a list of tuples: (RFC, Warehouse)
-    for all registered rows where Technician (Column C) is still empty.
+    Returns RFCs where Technician (Column C) is still empty.
     """
-    # Fetch raw values safely without worrying about duplicate/blank headers
     rows = worksheet.get_all_values()
-    
     if len(rows) <= 1:
         return []
     
     available = []
-    
-    # Row 0 is header, so start from row 1
     for row in rows[1:]:
         rfc = row[0].strip() if len(row) > 0 else ""
         warehouse = row[1].strip() if len(row) > 1 else ""
         technician = row[2].strip() if len(row) > 2 else ""
         
-        # Keep RFCs that are registered but have no technician assigned
         if rfc and not technician:
             available.append((rfc, warehouse))
             
     return available
+
+
+def get_all_rfcs_with_warehouse():
+    """
+    Returns all registered RFCs and their Warehouses.
+    """
+    rows = worksheet.get_all_values()
+    if len(rows) <= 1:
+        return []
+    
+    all_rfcs = []
+    for row in rows[1:]:
+        rfc = row[0].strip() if len(row) > 0 else ""
+        warehouse = row[1].strip() if len(row) > 1 else ""
+        if rfc:
+            all_rfcs.append((rfc, warehouse))
+            
+    return all_rfcs

@@ -112,3 +112,15 @@ SAME_RFC_KEYBOARD = ReplyKeyboardMarkup(
     resize_keyboard=True,
     one_time_keyboard=True,
 )
+# ==========================================================
+# NOT FOUND RFC KEYBOARD (TECHNICIAN)
+# ==========================================================
+
+RFC_NOT_FOUND_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["✍️ Try Another RFC"],
+        ["🔄 Change Name", "⬅️ Back to Main Menu"],
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)

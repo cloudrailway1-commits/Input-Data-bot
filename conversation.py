@@ -1,3 +1,4 @@
+import logging
 from telegram import (
     Update,
     ReplyKeyboardRemove,
@@ -29,6 +30,8 @@ from keyboards import (
     SAME_DIFFERENT_KEYBOARD,
     SAME_RFC_KEYBOARD,
 )
+
+logger = logging.getLogger(__name__)
 
 # ==========================================================
 # Conversation States
@@ -73,7 +76,6 @@ async def choose_role(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["role"] = role
 
-    # Prompt user for name based on selected role
     if role == "🏭 Warehouse Engineer":
         prompt = "🏢 Enter Warehouse / Engineer Name:"
     else:
@@ -103,9 +105,7 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["name"] = name
     role = context.user_data.get("role", "")
 
-    # ------------------------------------------
-    # For Technician: Show available RFC list BEFORE asking for RFC ID
-    # ------------------------------------------
+    # For Technician: Show available list before prompting for RFC ID
     if role == "🛠 Technician":
         available_list = get_available_rfcs()
 
@@ -127,9 +127,7 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode="Markdown")
         return RFC
 
-    # ------------------------------------------
     # For Warehouse Engineer
-    # ------------------------------------------
     await update.message.reply_text("📄 Enter new RFC ID to register:")
     return RFC
 
@@ -143,10 +141,7 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rfc = update.message.text.strip().upper()
         role = context.user_data.get("role", "")
 
-        # ------------------------------------------
-        # Warehouse Engineer
-        # ------------------------------------------
-        # Warehouse Engineer
+        # Warehouse Engineer Flow
         if role == "🏭 Warehouse Engineer":
             if rfc_exists(rfc):
                 await update.message.reply_text(
@@ -175,41 +170,7 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             return AFTER_REGISTER
 
-        async def handle_after_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
-            choice = update.message.text.strip()
-
-            if choice == "➕ Add More RFC":
-                await update.message.reply_text(
-                    f"Current Warehouse Name: *{context.user_data.get('name')}*\n\n"
-                    "Do you want to use the same Warehouse name or a different one?",
-                    parse_mode="Markdown",
-                    reply_markup=SAME_DIFFERENT_KEYBOARD,
-                )
-                return AFTER_REGISTER
-
-            if choice == "🔄 Use Same Name":
-                await update.message.reply_text("📄 Enter new RFC ID to register:", reply_markup=ReplyKeyboardRemove())
-                return RFC
-
-            if choice == "✍️ Use Different Name":
-                await update.message.reply_text("🏢 Enter Warehouse / Engineer Name:", reply_markup=ReplyKeyboardRemove())
-                return NAME
-
-            if choice == "⬅️ Back to Main Menu":
-                context.user_data.clear()
-                await update.message.reply_text(
-                    "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
-                    parse_mode="Markdown",
-                    reply_markup=ROLE_KEYBOARD,
-                )
-                return ROLE
-
-            await update.message.reply_text("Please use the buttons provided.", reply_markup=AFTER_REGISTER_KEYBOARD)
-            return AFTER_REGISTER
-            
-        # ------------------------------------------
-        # Technician
-        # ------------------------------------------
+        # Technician Flow
         if not rfc_exists(rfc):
             await update.message.reply_text(
                 f"❌ RFC *{rfc}* not found. Please double-check the RFC ID and try again:",
@@ -217,7 +178,6 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return RFC
 
-        # Valid RFC found -> Proceed to questions
         context.user_data["rfc"] = rfc
         context.user_data["answers"] = []
         context.user_data["question_index"] = 0
@@ -236,47 +196,43 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"⚠️ Error: {e}")
         return RFC
-    # ------------------------------------------
-    # Technician
-    # ------------------------------------------
-    if not rfc_exists(rfc):
-        # Fetch available RFCs & Warehouses to show the technician
-        available_list = get_available_rfcs()
 
-        if available_list:
-            formatted_list = "\n".join(
-                [f"• *{item[0]}* — Warehouse: {item[1]}" for item in available_list]
-            )
-            msg = (
-                f"❌ RFC *{rfc}* not found.\n\n"
-                f"📋 *Available RFCs & Warehouses:*\n"
-                f"{formatted_list}\n\n"
-                f"Please enter a valid RFC ID:"
-            )
-        else:
-            msg = (
-                f"❌ RFC *{rfc}* not found, and no active RFCs are currently available.\n\n"
-                f"Please ask the Warehouse Engineer to register it first."
-            )
 
-        await update.message.reply_text(msg, parse_mode="Markdown")
+# ==========================================================
+# Handle Warehouse After-Register Options
+# ==========================================================
+
+async def handle_after_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    choice = update.message.text.strip()
+
+    if choice == "➕ Add More RFC":
+        await update.message.reply_text(
+            f"Current Warehouse Name: *{context.user_data.get('name')}*\n\n"
+            "Do you want to use the same Warehouse name or a different one?",
+            parse_mode="Markdown",
+            reply_markup=SAME_DIFFERENT_KEYBOARD,
+        )
+        return AFTER_REGISTER
+
+    if choice == "🔄 Use Same Name":
+        await update.message.reply_text("📄 Enter new RFC ID to register:", reply_markup=ReplyKeyboardRemove())
         return RFC
 
-    # RFC exists -> proceed to material questions
-    context.user_data["rfc"] = rfc
-    context.user_data["answers"] = []
-    context.user_data["question_index"] = 0
+    if choice == "✍️ Use Different Name":
+        await update.message.reply_text("🏢 Enter Warehouse / Engineer Name:", reply_markup=ReplyKeyboardRemove())
+        return NAME
 
-    question = QUESTIONS[0][0]
+    if choice == "⬅️ Back to Main Menu":
+        context.user_data.clear()
+        await update.message.reply_text(
+            "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
+            parse_mode="Markdown",
+            reply_markup=ROLE_KEYBOARD,
+        )
+        return ROLE
 
-    await update.message.reply_text(
-        f"✅ RFC ID *{rfc}* verified.\n\n"
-        f"Question 1/{TOTAL_QUESTIONS}\n\n"
-        f"{question}:",
-        parse_mode="Markdown"
-    )
-
-    return QUESTION
+    await update.message.reply_text("Please use the buttons provided.", reply_markup=AFTER_REGISTER_KEYBOARD)
+    return AFTER_REGISTER
 
 
 # ==========================================================
@@ -301,6 +257,7 @@ async def ask_questions(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return QUESTION
 
     return await finish(update, context)
+
 
 # ==========================================================
 # Finish Report
@@ -339,6 +296,11 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
         return RESTART
 
+
+# ==========================================================
+# Handle Technician After-Report Options
+# ==========================================================
+
 async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.strip()
 
@@ -352,7 +314,6 @@ async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE
         return AFTER_REPORT
 
     if choice == "📑 Use Same RFC":
-        # Reset question index and answers
         context.user_data["answers"] = []
         context.user_data["question_index"] = 0
         question = QUESTIONS[0][0]
@@ -397,8 +358,7 @@ async def restart_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if choice == "🔄 New Report":
         context.user_data.clear()
         await update.message.reply_text(
-            "📦 *Fieldwork Material Bot*\n\n"
-            "Please choose your role.",
+            "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
             parse_mode="Markdown",
             reply_markup=ROLE_KEYBOARD,
         )
@@ -407,16 +367,12 @@ async def restart_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if choice == "❌ Exit":
         context.user_data.clear()
         await update.message.reply_text(
-            "👋 Thank you for using Fieldwork Material Bot.\n\n"
-            "Type /start whenever you want to submit another report.",
+            "👋 Thank you for using Fieldwork Material Bot.\n\nType /start whenever you want to submit another report.",
             reply_markup=ReplyKeyboardRemove(),
         )
         return ConversationHandler.END
 
-    await update.message.reply_text(
-        "Please use one of the buttons below.",
-        reply_markup=FINISH_KEYBOARD,
-    )
+    await update.message.reply_text("Please use one of the buttons below.", reply_markup=FINISH_KEYBOARD)
     return RESTART
 
 
@@ -426,10 +382,8 @@ async def restart_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
-
     await update.message.reply_text(
-        "❌ Operation cancelled.\n\n"
-        "Type /start to begin again.",
+        "❌ Operation cancelled.\n\nType /start to begin again.",
         reply_markup=ReplyKeyboardRemove(),
     )
     return ConversationHandler.END
@@ -444,49 +398,13 @@ conversation_handler = ConversationHandler(
         CommandHandler("start", start),
     ],
     states={
-        ROLE: [
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                choose_role,
-            )
-        ],
-        NAME: [
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                ask_name,
-            )
-        ],
-        RFC: [
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                ask_rfc,
-            )
-        ],
-        QUESTION: [
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                ask_questions,
-            )
-        ],
-        RESTART: [
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                restart_menu,
-            )
-        ],
-        AFTER_REGISTER: [
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                handle_after_register,
-            )
-        ],
-
-        AFTER_REPORT: [
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                handle_after_report,
-            )
-        ],
+        ROLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_role)],
+        NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
+        RFC: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_rfc)],
+        QUESTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_questions)],
+        RESTART: [MessageHandler(filters.TEXT & ~filters.COMMAND, restart_menu)],
+        AFTER_REGISTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_after_register)],
+        AFTER_REPORT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_after_report)],
     },
     fallbacks=[
         CommandHandler("cancel", cancel),

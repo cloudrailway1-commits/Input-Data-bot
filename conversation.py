@@ -273,9 +273,17 @@ async def ask_questions(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Finish Report
 # ==========================================================
 
+# ==========================================================
+# Finish Report
+# ==========================================================
+
 async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        row = find_rfc(context.user_data["rfc"])
+        rfc = context.user_data.get("rfc")
+        technician_name = context.user_data.get("name", "")
+        answers = context.user_data.get("answers", [])
+
+        row = find_rfc(rfc)
 
         if row is None:
             await update.message.reply_text(
@@ -285,15 +293,17 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.clear()
             return RESTART
 
+        # Save technician name + all material answers into Google Sheets
         update_row_answers(
             row=row,
-            technician=context.user_data["name"],
-            answers=context.user_data["answers"],
+            technician=technician_name,
+            answers=answers,
         )
 
         await update.message.reply_text(
-            "✅ Report submitted successfully!\n\n"
+            f"✅ Report submitted successfully for Technician *{technician_name}*!\n\n"
             "Choose your next action.",
+            parse_mode="Markdown",
             reply_markup=FINISH_KEYBOARD,
         )
 

@@ -197,3 +197,24 @@ if __name__ == "__main__":
     print("Worksheet :", worksheet.title)
     print("Rows      :", worksheet.row_count)
     print("Columns   :", worksheet.col_count)
+
+# Add this function in database.py
+
+def get_available_rfcs():
+    """
+    Returns a list of tuples containing (RFC, Warehouse) 
+    for all registered rows where Technician (Column C) is still empty.
+    """
+    records = worksheet.get_all_records()
+    available = []
+    
+    for row in records:
+        rfc = str(row.get("RFC", "")).strip()
+        warehouse = str(row.get("Warehouse Engineer", "")).strip()
+        technician = str(row.get("Technician", "")).strip()
+        
+        # Include RFCs that have been registered but not yet completed by a technician
+        if rfc and not technician:
+            available.append((rfc, warehouse))
+            
+    return available

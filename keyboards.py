@@ -62,3 +62,53 @@ REMOVE_KEYBOARD = ReplyKeyboardMarkup(
     [[]],
     resize_keyboard=True,
 )
+
+# Add these at the bottom of keyboards.py
+
+# ==========================================================
+# AFTER RFC REGISTER KEYBOARD (WAREHOUSE)
+# ==========================================================
+
+AFTER_REGISTER_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["➕ Add More RFC", "⬅️ Back to Main Menu"],
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=False,
+    is_persistent=True,
+    input_field_placeholder="Choose an option...",
+)
+
+# ==========================================================
+# AFTER REPORT KEYBOARD (TECHNICIAN)
+# ==========================================================
+
+AFTER_REPORT_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["📋 Submit Another Report", "⬅️ Back to Main Menu"],
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=False,
+    is_persistent=True,
+    input_field_placeholder="Choose an option...",
+)
+
+# ==========================================================
+# SAME / DIFFERENT KEYBOARD
+# ==========================================================
+
+SAME_DIFFERENT_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["🔄 Use Same Name", "✍️ Use Different Name"],
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)
+
+SAME_RFC_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["📑 Use Same RFC", "📄 Use Different RFC"],
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)

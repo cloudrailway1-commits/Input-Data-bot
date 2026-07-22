@@ -175,38 +175,6 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             return AFTER_REGISTER
 
-        async def handle_after_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
-            choice = update.message.text.strip()
-
-            if choice == "➕ Add More RFC":
-                await update.message.reply_text(
-                    f"Current Warehouse Name: *{context.user_data.get('name')}*\n\n"
-                    "Do you want to use the same Warehouse name or a different one?",
-                    parse_mode="Markdown",
-                    reply_markup=SAME_DIFFERENT_KEYBOARD,
-                )
-                return AFTER_REGISTER
-
-            if choice == "🔄 Use Same Name":
-                await update.message.reply_text("📄 Enter new RFC ID to register:", reply_markup=ReplyKeyboardRemove())
-                return RFC
-
-            if choice == "✍️ Use Different Name":
-                await update.message.reply_text("🏢 Enter Warehouse / Engineer Name:", reply_markup=ReplyKeyboardRemove())
-                return NAME
-
-            if choice == "⬅️ Back to Main Menu":
-                context.user_data.clear()
-                await update.message.reply_text(
-                    "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
-                    parse_mode="Markdown",
-                    reply_markup=ROLE_KEYBOARD,
-                )
-                return ROLE
-
-            await update.message.reply_text("Please use the buttons provided.", reply_markup=AFTER_REGISTER_KEYBOARD)
-            return AFTER_REGISTER
-            
         # ------------------------------------------
         # Technician
         # ------------------------------------------
@@ -338,6 +306,43 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Failed to save report.\n\n{e}", reply_markup=FINISH_KEYBOARD)
         context.user_data.clear()
         return RESTART
+
+async def handle_after_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    choice = update.message.text.strip()
+
+    if choice == "➕ Add More RFC":
+        await update.message.reply_text(
+            f"Current Warehouse Name: *{context.user_data.get('name')}*\n\n"
+            "Do you want to use the same Warehouse name or a different one?",
+            parse_mode="Markdown",
+            reply_markup=SAME_DIFFERENT_KEYBOARD,
+        )
+        return AFTER_REGISTER
+
+    if choice == "🔄 Use Same Name":
+        await update.message.reply_text("📄 Enter new RFC ID to register:", reply_markup=ReplyKeyboardRemove())
+        return RFC
+
+    if choice == "✍️ Use Different Name":
+        await update.message.reply_text("🏢 Enter Warehouse / Engineer Name:", reply_markup=ReplyKeyboardRemove())
+        return NAME
+
+    if choice == "⬅️ Back to Main Menu":
+        context.user_data.clear()
+        await update.message.reply_text(
+            "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
+            parse_mode="Markdown",
+            reply_markup=ROLE_KEYBOARD,
+        )
+        return ROLE
+
+    await update.message.reply_text("Please use the buttons provided.", reply_markup=AFTER_REGISTER_KEYBOARD)
+    return AFTER_REGISTER
+
+
+# ==========================================================
+# Handle After Report
+# ==========================================================
 
 async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.strip()

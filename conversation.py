@@ -121,7 +121,7 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             msg = (
                 "⚠️ No active RFCs are currently available.\n\n"
-                "Please ask the Warehouse Engineer to register an RFC first"
+                "Please ask the Warehouse Engineer to register an RFC first."
             )
         
         await update.message.reply_text(msg, parse_mode="Markdown")
@@ -173,7 +173,7 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Technician Flow
         if not rfc_exists(rfc):
             await update.message.reply_text(
-                f"❌ RFC *{rfc}* not found. Please double-check the RFC ID and try again:",
+                f"❌ RFC *{rfc}* not found. Please double-check the RFC ID and try again.",
                 parse_mode="Markdown",
             )
             return RFC

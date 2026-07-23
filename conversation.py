@@ -16,7 +16,6 @@ from database import (
     rfc_exists,
     get_available_rfcs_by_warehouse,
     get_rfcs_by_warehouse,
-    get_available_warehouses,
     find_rfc,
     update_row_answers,
 )
@@ -24,18 +23,15 @@ from database import (
 from questions import QUESTIONS, TOTAL_QUESTIONS
 
 from keyboards import (
-    FIXED_WAREHOUSES,
     ROLE_KEYBOARD,
     FINISH_KEYBOARD,
     AFTER_REGISTER_KEYBOARD,
     AFTER_REPORT_KEYBOARD,
     SAME_RFC_KEYBOARD,
     RFC_NOT_FOUND_KEYBOARD,
-    NO_RFC_KEYBOARD,
     PREVIEW_KEYBOARD,
     CANCEL_EDIT_KEYBOARD,
     get_warehouse_keyboard,
-    get_rfc_keyboard,
 )
 
 logger = logging.getLogger(__name__)
@@ -117,34 +113,9 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return NAME
 
     context.user_data["name"] = name
-    role = context.user_data.get("role", "")
 
-    # ------------------------------------------
-    # Technician Flow: Select active Warehouse
-    # ------------------------------------------
-    if role == "🛠 Technician":
-        warehouses = get_available_warehouses()
-
-        if not warehouses:
-            await update.message.reply_text(
-                "⚠️ No active Warehouses/RFCs are currently available.\n\n"
-                "Please ask the Warehouse Engineer to register an RFC first.",
-                reply_markup=NO_RFC_KEYBOARD,
-            )
-            return WAREHOUSE
-
-        keyboard = get_warehouse_keyboard(warehouses)
-        await update.message.reply_text(
-            "🏬 *Select Warehouse / SO Location:*",
-            parse_mode="Markdown",
-            reply_markup=keyboard,
-        )
-        return WAREHOUSE
-
-    # ------------------------------------------
-    # Warehouse Engineer Flow: Show predefined Warehouse list
-    # ------------------------------------------
-    keyboard = get_warehouse_keyboard(FIXED_WAREHOUSES)
+    # Both Warehouse Engineers and Technicians receive full warehouse buttons
+    keyboard = get_warehouse_keyboard()
     await update.message.reply_text(
         "🏬 *Select Warehouse / SO Location:*",
         parse_mode="Markdown",
@@ -174,25 +145,30 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
     role = context.user_data.get("role", "")
 
     # ------------------------------------------
-    # Technician Flow: Display RFC IDs for selected Warehouse
+    # Technician Flow: Show RFC list as chat text message
     # ------------------------------------------
     if role == "🛠 Technician":
         available_rfcs = get_available_rfcs_by_warehouse(warehouse)
 
         if not available_rfcs:
-            await update.message.reply_text(
-                f"⚠️ No active RFCs found under Warehouse *{warehouse}*.",
-                parse_mode="Markdown",
-                reply_markup=NO_RFC_KEYBOARD,
+            msg = (
+                f"🏬 Warehouse: *{warehouse}*\n"
+                f"⚠️ *No active RFCs currently available for this warehouse.*\n\n"
+                f"Please type the RFC ID manually if you have one, or type /start to go back:"
             )
-            return WAREHOUSE
+        else:
+            rfc_list_formatted = "\n".join([f"• `{rfc}`" for rfc in available_rfcs])
+            msg = (
+                f"🏬 Warehouse: *{warehouse}*\n\n"
+                f"📋 *Available RFC IDs:*\n"
+                f"{rfc_list_formatted}\n\n"
+                f"👇 *Please type the RFC ID to proceed:*"
+            )
 
-        keyboard = get_rfc_keyboard(available_rfcs)
         await update.message.reply_text(
-            f"📋 *Available RFC IDs for Warehouse [{warehouse}]:*\n\n"
-            f"Please select or type the RFC ID you want to work on:",
+            msg,
             parse_mode="Markdown",
-            reply_markup=keyboard,
+            reply_markup=ReplyKeyboardRemove(),
         )
         return RFC
 
@@ -214,7 +190,7 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================================
-# Enter / Select RFC
+# Enter / Validate RFC
 # ==========================================================
 
 async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -298,16 +274,12 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_rfc_not_found(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
-    warehouse = context.user_data.get("warehouse", "")
 
     if text == "✍️ Try Another RFC":
-        available_rfcs = get_available_rfcs_by_warehouse(warehouse)
-        if available_rfcs:
-            keyboard = get_rfc_keyboard(available_rfcs)
-            msg = f"📋 *Available RFC IDs for Warehouse [{warehouse}]:*\n\nSelect or enter RFC ID:"
-            await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=keyboard)
-        else:
-            await update.message.reply_text("📄 Please enter the RFC ID:", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text(
+            "📄 Please type the RFC ID again:",
+            reply_markup=ReplyKeyboardRemove(),
+        )
         return RFC
 
     if text == "⬅️ Back to Main Menu":
@@ -553,14 +525,19 @@ async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE
     if choice == "📄 Use Different RFC":
         warehouse = context.user_data.get("warehouse", "")
         available_rfcs = get_available_rfcs_by_warehouse(warehouse)
-        if available_rfcs:
-            keyboard = get_rfc_keyboard(available_rfcs)
-            msg = f"📋 *Available RFC IDs for Warehouse [{warehouse}]:*\n\nSelect or enter RFC ID:"
-            await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=keyboard)
-        else:
-            msg = "⚠️ No active RFCs available for this warehouse. Select Back to return to Main Menu:"
-            await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=NO_RFC_KEYBOARD)
 
+        if available_rfcs:
+            rfc_list_formatted = "\n".join([f"• `{rfc}`" for rfc in available_rfcs])
+            msg = (
+                f"🏬 Warehouse: *{warehouse}*\n\n"
+                f"📋 *Available RFC IDs:*\n"
+                f"{rfc_list_formatted}\n\n"
+                f"👇 *Please type the RFC ID to proceed:*"
+            )
+        else:
+            msg = f"🏬 Warehouse: *{warehouse}*\n⚠️ *No active RFCs available.* Please type the RFC ID directly:"
+
+        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
         return RFC
 
     if choice == "⬅️ Back to Main Menu":

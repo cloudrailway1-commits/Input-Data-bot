@@ -1,6 +1,40 @@
 from telegram import ReplyKeyboardMarkup
 
-# Existing keyboards...
+# ==========================================================
+# FIXED WAREHOUSE LIST
+# ==========================================================
+
+FIXED_WAREHOUSES = [
+    "ACEH",
+    "SO LANGSA",
+    "SO LHOKSEUMAWE",
+    "SO MEULABOH",
+    "SO TAPAKTUAN",
+    "SO TAKENGON",
+    "SO SIGLI",
+    "MEDAN",
+    "SO BINJAI",
+    "SO PADANG BULAN",
+    "SO PUBA",
+    "SO SPM",
+    "SO SKI",
+    "SO TJR",
+    "SO TJM",
+    "SO LBP",
+    "SUMUT",
+    "SO KABANAJAHE",
+    "SO KISARAN",
+    "SO SIDEMPUAN",
+    "SO PMTG SIANTAR",
+    "SO RANTAU PRAPAT",
+    "SO SIBLOGA",
+]
+
+
+# ==========================================================
+# STATIC KEYBOARDS
+# ==========================================================
+
 ROLE_KEYBOARD = ReplyKeyboardMarkup(
     [["🏭 Warehouse Engineer"], ["🛠 Technician"]],
     resize_keyboard=True,
@@ -60,9 +94,21 @@ FINISH_KEYBOARD = ReplyKeyboardMarkup(
 # DYNAMIC KEYBOARD HELPERS
 # ==========================================================
 
-def get_warehouse_keyboard(warehouses_list: list):
-    """Generates a reply keyboard listing unique warehouses."""
-    buttons = [[wh] for wh in warehouses_list]
+def get_warehouse_keyboard(warehouses_list: list = None):
+    """
+    Generates a 2-column reply keyboard listing warehouses.
+    Defaults to FIXED_WAREHOUSES if no list is passed.
+    """
+    items = warehouses_list if warehouses_list else FIXED_WAREHOUSES
+
+    # Arrange buttons 2 per row
+    buttons = []
+    for i in range(0, len(items), 2):
+        row = [items[i]]
+        if i + 1 < len(items):
+            row.append(items[i + 1])
+        buttons.append(row)
+
     buttons.append(["⬅️ Back to Main Menu"])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True, one_time_keyboard=True)
 

@@ -2,6 +2,7 @@ import logging
 from telegram import (
     Update,
     ReplyKeyboardRemove,
+    ReplyKeyboardMarkup,
 )
 from telegram.ext import (
     ConversationHandler,
@@ -31,6 +32,8 @@ from keyboards import (
     SAME_RFC_KEYBOARD,
     RFC_NOT_FOUND_KEYBOARD,
     NO_RFC_KEYBOARD,
+    PREVIEW_KEYBOARD,
+    CANCEL_EDIT_KEYBOARD,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,7 +42,18 @@ logger = logging.getLogger(__name__)
 # Conversation States
 # ==========================================================
 
-ROLE, NAME, RFC, QUESTION, RESTART, AFTER_REGISTER, AFTER_REPORT, RFC_NOT_FOUND = range(8)
+(
+    ROLE,
+    NAME,
+    RFC,
+    QUESTION,
+    RESTART,
+    AFTER_REGISTER,
+    AFTER_REPORT,
+    RFC_NOT_FOUND,
+    PREVIEW,
+    EDIT_SELECT,
+) = range(10)
 
 # ==========================================================
 # /start
@@ -147,7 +161,7 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         text = update.message.text.strip()
 
-        # Handle Back option if technician clicks the back button
+        # Handle Back option if user clicks the button
         if text == "⬅️ Back to Main Menu":
             context.user_data.clear()
             await update.message.reply_text(
@@ -308,6 +322,14 @@ async def handle_after_register(update: Update, context: ContextTypes.DEFAULT_TY
 async def ask_questions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     answer = update.message.text.strip()
 
+    # Check if user is editing a specific question from preview
+    if context.user_data.get("editing_index") is not None:
+        idx = context.user_data["editing_index"]
+        context.user_data["answers"][idx] = answer
+        context.user_data["editing_index"] = None
+        await update.message.reply_text("✅ Answer updated successfully!")
+        return await show_preview(update, context)
+
     context.user_data["answers"].append(answer)
     context.user_data["question_index"] += 1
 
@@ -322,7 +344,109 @@ async def ask_questions(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return QUESTION
 
-    return await finish(update, context)
+    # All questions completed -> route to Preview
+    return await show_preview(update, context)
+
+
+# ==========================================================
+# Show Report Preview
+# ==========================================================
+
+async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rfc = context.user_data.get("rfc", "N/A")
+    name = context.user_data.get("name", "N/A")
+    answers = context.user_data.get("answers", [])
+
+    preview_lines = [
+        "📋 *REPORT PREVIEW*",
+        "----------------------------------",
+        f"👤 *Technician:* {name}",
+        f"📄 *RFC ID:* {rfc}",
+        "----------------------------------",
+    ]
+
+    for i, ans in enumerate(answers):
+        q_label = QUESTIONS[i][0]
+        preview_lines.append(f"*{i + 1}. {q_label}:*\n└ {ans}")
+
+    preview_lines.append("----------------------------------")
+    preview_lines.append("Please verify your answers before submitting:")
+
+    await update.message.reply_text(
+        "\n".join(preview_lines),
+        parse_mode="Markdown",
+        reply_markup=PREVIEW_KEYBOARD,
+    )
+    return PREVIEW
+
+
+# ==========================================================
+# Handle Preview Actions
+# ==========================================================
+
+async def handle_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+
+    if text == "✅ Confirm & Submit":
+        return await finish(update, context)
+
+    if text == "✏️ Edit Answers":
+        options = "\n".join(
+            [f"{i + 1}. {QUESTIONS[i][0]}" for i in range(TOTAL_QUESTIONS)]
+        )
+        await update.message.reply_text(
+            f"✏️ *Which answer would you like to edit?*\n\n"
+            f"{options}\n\n"
+            f"Type the question number (1-{TOTAL_QUESTIONS}):",
+            parse_mode="Markdown",
+            reply_markup=CANCEL_EDIT_KEYBOARD,
+        )
+        return EDIT_SELECT
+
+    if text == "❌ Cancel Report":
+        context.user_data.clear()
+        await update.message.reply_text(
+            "❌ Report submission cancelled.",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return await start(update, context)
+
+    await update.message.reply_text("Please select an option from the keyboard.", reply_markup=PREVIEW_KEYBOARD)
+    return PREVIEW
+
+
+# ==========================================================
+# Select Question to Edit
+# ==========================================================
+
+async def handle_edit_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+
+    if text == "❌ Cancel Editing":
+        return await show_preview(update, context)
+
+    if text.isdigit():
+        num = int(text)
+        if 1 <= num <= TOTAL_QUESTIONS:
+            idx = num - 1
+            context.user_data["editing_index"] = idx
+            question = QUESTIONS[idx][0]
+            current_ans = context.user_data["answers"][idx]
+
+            await update.message.reply_text(
+                f"Editing Question {num}:\n*{question}*\n\n"
+                f"Current Answer: _{current_ans}_\n\n"
+                f"Please enter your new answer:",
+                parse_mode="Markdown",
+                reply_markup=ReplyKeyboardRemove(),
+            )
+            return QUESTION
+
+    await update.message.reply_text(
+        f"⚠️ Invalid choice. Please enter a number between 1 and {TOTAL_QUESTIONS}:",
+        reply_markup=CANCEL_EDIT_KEYBOARD,
+    )
+    return EDIT_SELECT
 
 
 # ==========================================================
@@ -473,6 +597,8 @@ conversation_handler = ConversationHandler(
         AFTER_REGISTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_after_register)],
         AFTER_REPORT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_after_report)],
         RFC_NOT_FOUND: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_rfc_not_found)],
+        PREVIEW: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_preview)],
+        EDIT_SELECT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_edit_selection)],
     },
     fallbacks=[
         CommandHandler("cancel", cancel),

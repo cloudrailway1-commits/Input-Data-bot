@@ -1,151 +1,309 @@
-import logging
 import gspread
 from google.oauth2.service_account import Credentials
-from config import GOOGLE_CREDENTIALS
 
-logger = logging.getLogger(__name__)
+from config import SPREADSHEET_ID, GOOGLE_CREDENTIALS
+
+# ==========================================================
+# GOOGLE SHEETS CONNECTION
+# ==========================================================
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
 
-SPREADSHEET_NAME = "Fieldwork_Material_Database"
-WORKSHEET_NAME = "RFC_Data"
+creds = Credentials.from_service_account_file(
+    GOOGLE_CREDENTIALS,
+    scopes=SCOPES,
+)
+
+client = gspread.authorize(creds)
+
+worksheet = client.open_by_key(SPREADSHEET_ID).sheet1
+
+# ==========================================================
+# SHEET STRUCTURE
+# ==========================================================
+#
+# Column A = RFC
+# Column B = Warehouse Engineer / Category
+# Column C = Technician
+# Column D = Drop Core
+# Column E = Precon50
+# Column F = Precon60
+# Column G = Precon70
+# Column H = Precon75
+# Column I = Precon80
+# Column J = Precon85
+# Column K = Precon100
+# Column L = Precon120
+# Column M = Precon125
+# Column N = Precon130
+# Column O = Precon135
+# Column P = Precon150
+# Column Q = Precon200
+# Column R = Precon250
+# Column S = Clamp-hook
+# Column T = S-Clamp S
+# Column U = SOC-ILS
+# Column V = SOC-FUJ
+# Column W = SOC-SUM
+# Column X = SN ONT
+# Column Y = SN STB
+#
+# ==========================================================
 
 
-def get_worksheet():
-    try:
-        creds = Credentials.from_service_account_file(GOOGLE_CREDENTIALS, scopes=SCOPES)
-        client = gspread.authorize(creds)
-        spreadsheet = client.open(SPREADSHEET_NAME)
-        return spreadsheet.worksheet(WORKSHEET_NAME)
-    except Exception as e:
-        logger.error(f"Failed to connect to Google Sheets: {e}")
-        raise e
+# ==========================================================
+# READ FUNCTIONS
+# ==========================================================
+
+def get_all_data():
+    """Return all rows as dictionaries."""
+    return worksheet.get_all_records()
 
 
-def get_all_rows() -> list[dict]:
-    """Fetches all records as dictionaries with normalized lower_snake_case keys."""
-    try:
-        sheet = get_worksheet()
-        records = sheet.get_all_records()
-        normalized_records = []
-        for row in records:
-            clean_row = {}
-            for k, v in row.items():
-                clean_key = str(k).strip().lower().replace(" ", "_").replace("/", "_")
-                clean_row[clean_key] = str(v).strip() if v is not None else ""
-            normalized_records.append(clean_row)
-        return normalized_records
-    except Exception as e:
-        logger.error(f"Error fetching rows from database: {e}")
+def get_all_values():
+    """Return all sheet values."""
+    return worksheet.get_all_values()
+
+
+def find_rfc(rfc: str):
+    """
+    Return row number of RFC.
+    Return None if RFC does not exist.
+    """
+    values = worksheet.col_values(1)
+
+    for row, value in enumerate(values, start=1):
+        if value.strip().upper() == rfc.strip().upper():
+            return row
+
+    return None
+
+
+def rfc_exists(rfc: str):
+    """Check if RFC ID exists in column A."""
+    return find_rfc(rfc) is not None
+
+
+def get_row(row: int):
+    """Get values of a specific row."""
+    return worksheet.row_values(row)
+
+
+# ==========================================================
+# WAREHOUSE & RFC FILTER FUNCTIONS
+# ==========================================================
+
+def get_all_warehouses():
+    """
+    Returns a list of unique Warehouse names (Column B).
+    """
+    rows = worksheet.get_all_values()
+    if len(rows) <= 1:
         return []
 
+    warehouses = []
+    for row in rows[1:]:
+        wh = row[1].strip() if len(row) > 1 else ""
+        if wh and wh not in warehouses:
+            warehouses.append(wh)
 
-def _extract_warehouse(row: dict) -> str:
-    """Helper to extract warehouse value regardless of column header variations."""
-    for key in ["warehouse", "location", "so_location", "warehouse___so_location", "so"]:
-        if key in row and row[key]:
-            return row[key].upper()
-    return ""
-
-
-def _extract_rfc_id(row: dict) -> str:
-    """Helper to extract RFC ID value regardless of column header variations."""
-    for key in ["rfc_id", "rfc", "rfc_number", "id"]:
-        if key in row and row[key]:
-            return row[key].upper()
-    return ""
+    return warehouses
 
 
-def rfc_exists(rfc: str) -> bool:
-    try:
-        target = str(rfc).strip().upper()
-        records = get_all_rows()
-        for row in records:
-            if _extract_rfc_id(row) == target:
-                return True
-        return False
-    except Exception as e:
-        logger.error(f"Error checking if RFC exists: {e}")
-        return False
+def get_available_warehouses():
+    """
+    Returns unique Warehouses that have unfulfilled RFCs
+    (where Technician in Column C is empty).
+    """
+    rows = worksheet.get_all_values()
+    if len(rows) <= 1:
+        return []
+
+    available_warehouses = []
+    for row in rows[1:]:
+        rfc = row[0].strip() if len(row) > 0 else ""
+        wh = row[1].strip() if len(row) > 1 else ""
+        tech = row[2].strip() if len(row) > 2 else ""
+
+        if rfc and not tech and wh:
+            if wh not in available_warehouses:
+                available_warehouses.append(wh)
+
+    return available_warehouses
 
 
-def add_rfc(rfc: str, warehouse: str, engineer_name: str) -> bool:
-    try:
-        sheet = get_worksheet()
-        # Appends directly across Columns A to E
-        sheet.append_row([
-            str(rfc).strip().upper(),
-            str(warehouse).strip().upper(),
-            str(engineer_name).strip(),
-            "",
-            "AVAILABLE"
-        ])
-        logger.info(f"Successfully added RFC: {rfc} under {warehouse}")
-        return True
-    except Exception as e:
-        logger.error(f"Error adding RFC {rfc}: {e}")
-        return False
+def get_available_rfcs_by_warehouse(warehouse_name: str):
+    """
+    Returns a list of RFC IDs for a specific Warehouse
+    where Technician (Column C) is still empty.
+    """
+    rows = worksheet.get_all_values()
+    if len(rows) <= 1:
+        return []
 
-
-def get_rfcs_by_warehouse(warehouse: str) -> list[str]:
-    records = get_all_rows()
     rfcs = []
-    target_wh = str(warehouse).strip().upper()
+    for row in rows[1:]:
+        rfc = row[0].strip() if len(row) > 0 else ""
+        wh = row[1].strip() if len(row) > 1 else ""
+        tech = row[2].strip() if len(row) > 2 else ""
 
-    for row in records:
-        row_wh = _extract_warehouse(row)
-        rfc_id = _extract_rfc_id(row)
-        if row_wh == target_wh and rfc_id:
-            rfcs.append(rfc_id)
+        if rfc and not tech and wh.lower() == warehouse_name.strip().lower():
+            rfcs.append(rfc)
 
     return rfcs
 
 
-def get_available_rfcs_by_warehouse(warehouse: str) -> list[str]:
-    records = get_all_rows()
+def get_rfcs_by_warehouse(warehouse_name: str):
+    """
+    Returns all registered RFC IDs for a specific Warehouse.
+    """
+    rows = worksheet.get_all_values()
+    if len(rows) <= 1:
+        return []
+
+    rfcs = []
+    for row in rows[1:]:
+        rfc = row[0].strip() if len(row) > 0 else ""
+        wh = row[1].strip() if len(row) > 1 else ""
+
+        if rfc and wh.lower() == warehouse_name.strip().lower():
+            rfcs.append(rfc)
+
+    return rfcs
+
+
+def get_available_rfcs():
+    """
+    Returns all RFC tuples (RFC, Warehouse) where Technician (Column C) is empty.
+    """
+    rows = worksheet.get_all_values()
+    if len(rows) <= 1:
+        return []
+
     available = []
-    target_wh = str(warehouse).strip().upper()
+    for row in rows[1:]:
+        rfc = row[0].strip() if len(row) > 0 else ""
+        warehouse = row[1].strip() if len(row) > 1 else ""
+        technician = row[2].strip() if len(row) > 2 else ""
 
-    for row in records:
-        row_wh = _extract_warehouse(row)
-        status = row.get("status", "").upper()
-        tech = row.get("technician", "")
-        rfc_id = _extract_rfc_id(row)
-
-        if row_wh == target_wh and status != "COMPLETED" and not tech:
-            if rfc_id:
-                available.append(rfc_id)
+        if rfc and not technician:
+            available.append((rfc, warehouse))
 
     return available
 
 
-def find_rfc(rfc: str):
-    try:
-        target = str(rfc).strip().upper()
-        records = get_all_rows()
-        for idx, row in enumerate(records):
-            if _extract_rfc_id(row) == target:
-                return idx + 2  # Row offset for header
-        return None
-    except Exception as e:
-        logger.error(f"Error finding RFC {rfc}: {e}")
-        return None
+def get_all_rfcs_with_warehouse():
+    """
+    Returns all registered RFC tuples (RFC, Warehouse).
+    """
+    rows = worksheet.get_all_values()
+    if len(rows) <= 1:
+        return []
+
+    all_rfcs = []
+    for row in rows[1:]:
+        rfc = row[0].strip() if len(row) > 0 else ""
+        warehouse = row[1].strip() if len(row) > 1 else ""
+        if rfc:
+            all_rfcs.append((rfc, warehouse))
+
+    return all_rfcs
 
 
-def update_row_answers(row: int, technician: str, answers: list[str]) -> bool:
-    try:
-        sheet = get_worksheet()
-        sheet.update_cell(row, 4, str(technician))
-        sheet.update_cell(row, 5, "COMPLETED")
+# ==========================================================
+# CREATE FUNCTIONS
+# ==========================================================
 
-        for offset, answer in enumerate(answers):
-            sheet.update_cell(row, 6 + offset, str(answer))
+def add_rfc(rfc: str, warehouse: str, engineer_name: str = ""):
+    """
+    Add a new RFC row under a specific Warehouse Category.
+    """
+    worksheet.append_row([
+        rfc.upper(),        # A = RFC
+        warehouse,          # B = Warehouse / Category
+        "",                 # C = Technician
+        "",                 # D = Drop Core
+        "",                 # E = Precon50
+        "",                 # F = Precon60
+        "",                 # G = Precon70
+        "",                 # H = Precon75
+        "",                 # I = Precon80
+        "",                 # J = Precon85
+        "",                 # K = Precon100
+        "",                 # L = Precon120
+        "",                 # M = Precon125
+        "",                 # N = Precon130
+        "",                 # O = Precon135
+        "",                 # P = Precon150
+        "",                 # Q = Precon200
+        "",                 # R = Precon250
+        "",                 # S = Clamp-hook
+        "",                 # T = S-Clamp S
+        "",                 # U = SOC-ILS
+        "",                 # V = SOC-FUJ
+        "",                 # W = SOC-SUM
+        "",                 # X = SN ONT
+        "",                 # Y = SN STB
+    ])
 
-        logger.info(f"Updated row {row} with technician answers.")
+
+# ==========================================================
+# UPDATE FUNCTIONS
+# ==========================================================
+
+def update_cell(row: int, col: int, value):
+    """Update a single cell."""
+    worksheet.update_cell(row, col, value)
+
+
+def update_row_answers(row: int, technician: str, answers: list):
+    """
+    Update technician name (Column C) and material answers (Column D onwards).
+    """
+    # Column C = Technician Name
+    worksheet.update_cell(row, 3, technician)
+
+    # Column D onwards = Material Answers
+    for i, answer in enumerate(answers):
+        worksheet.update_cell(
+            row,
+            4 + i,
+            answer,
+        )
+
+
+# ==========================================================
+# DELETE FUNCTIONS
+# ==========================================================
+
+def delete_rfc(rfc: str):
+    """Delete an RFC row by RFC ID."""
+    row = find_rfc(rfc)
+
+    if row:
+        worksheet.delete_rows(row)
         return True
-    except Exception as e:
-        logger.error(f"Error updating row {row}: {e}")
-        raise e
+
+    return False
+
+
+# ==========================================================
+# DEBUG & TESTING
+# ==========================================================
+
+def print_sheet():
+    for row in worksheet.get_all_values():
+        print(row)
+
+
+if __name__ == "__main__":
+    print("=" * 50)
+    print("Google Sheets Connected Successfully")
+    print("=" * 50)
+
+    print("Worksheet :", worksheet.title)
+    print("Rows      :", worksheet.row_count)
+    print("Columns   :", worksheet.col_count)

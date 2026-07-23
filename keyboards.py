@@ -137,3 +137,25 @@ NO_RFC_KEYBOARD = ReplyKeyboardMarkup(
     resize_keyboard=True,
     one_time_keyboard=True,
 )
+
+
+# ==========================================================
+# PREVIEW & CONFIRM KEYBOARD
+# ==========================================================
+
+PREVIEW_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["✅ Confirm & Submit"],
+        ["✏️ Edit Answers", "❌ Cancel Report"],
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)
+
+CANCEL_EDIT_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["❌ Cancel Editing"],
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)

@@ -21,38 +21,6 @@ client = gspread.authorize(creds)
 
 worksheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
-# ==========================================================
-# SHEET STRUCTURE
-# ==========================================================
-#
-# Column A = RFC
-# Column B = Warehouse Engineer / Category
-# Column C = Technician
-# Column D = Drop Core
-# Column E = Precon50
-# Column F = Precon60
-# Column G = Precon70
-# Column H = Precon75
-# Column I = Precon80
-# Column J = Precon85
-# Column K = Precon100
-# Column L = Precon120
-# Column M = Precon125
-# Column N = Precon130
-# Column O = Precon135
-# Column P = Precon150
-# Column Q = Precon200
-# Column R = Precon250
-# Column S = Clamp-hook
-# Column T = S-Clamp S
-# Column U = SOC-ILS
-# Column V = SOC-FUJ
-# Column W = SOC-SUM
-# Column X = SN ONT
-# Column Y = SN STB
-#
-# ==========================================================
-
 
 # ==========================================================
 # READ FUNCTIONS
@@ -82,9 +50,26 @@ def find_rfc(rfc: str):
     return None
 
 
-def rfc_exists(rfc: str):
-    """Check if RFC ID exists in column A."""
+def rfc_exists(rfc: str) -> bool:
+    """Check if RFC ID exists in column A (regardless of technician status)."""
     return find_rfc(rfc) is not None
+
+
+def is_rfc_available(rfc: str) -> bool:
+    """Check if RFC exists AND is not already claimed/used by a technician."""
+    rows = worksheet.get_all_values()
+    if len(rows) <= 1:
+        return False
+
+    for row in rows[1:]:
+        row_rfc = row[0].strip() if len(row) > 0 else ""
+        tech = row[2].strip() if len(row) > 2 else ""
+
+        if row_rfc.lower() == rfc.strip().lower():
+            # Returns True only if Technician column is empty
+            return tech == ""
+
+    return False
 
 
 def get_row(row: int):
@@ -288,15 +273,6 @@ def delete_rfc(rfc: str):
         return True
 
     return False
-
-
-# ==========================================================
-# DEBUG & TESTING
-# ==========================================================
-
-def print_sheet():
-    for row in worksheet.get_all_values():
-        print(row)
 
 
 if __name__ == "__main__":

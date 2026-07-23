@@ -8,7 +8,6 @@ logger = logging.getLogger(__name__)
 # GOOGLE SHEETS SETUP
 # ==========================================================
 
-# Modern Google Auth Scopes
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
@@ -20,7 +19,6 @@ WORKSHEET_NAME = "RFC_Data"
 def get_worksheet():
     """Connects to Google Sheets API using google-auth and returns target worksheet."""
     try:
-        # Load credentials using google.oauth2.service_account
         creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
         client = gspread.authorize(creds)
         spreadsheet = client.open(SPREADSHEET_NAME)
@@ -50,10 +48,8 @@ def rfc_exists(rfc: str) -> bool:
         sheet = get_worksheet()
         cell = sheet.find(rfc.upper())
         return cell is not None
-    except (gspread.CellNotFound, gspread.exceptions.GSpreadException):
-        # Cell wasn't found, meaning RFC does NOT exist yet
-        return False
     except Exception as e:
+        # Catch any exception gracefully so it never crashes the bot
         logger.error(f"Error checking if RFC exists: {e}")
         return False
 

@@ -1,161 +1,74 @@
 from telegram import ReplyKeyboardMarkup
 
-# ==========================================================
-# ROLE KEYBOARD
-# ==========================================================
-
+# Existing keyboards...
 ROLE_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["🏭 Warehouse Engineer"],
-        ["🛠 Technician"],
-    ],
-    resize_keyboard=True,
-    one_time_keyboard=False,
-    is_persistent=True,
-    input_field_placeholder="Select your role...",
-)
-
-# ==========================================================
-# FINISH / RESTART KEYBOARD
-# ==========================================================
-
-FINISH_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["🔄 New Report"],
-        ["❌ Exit"],
-    ],
-    resize_keyboard=True,
-    one_time_keyboard=False,
-    is_persistent=True,
-    input_field_placeholder="Choose an option...",
-)
-
-# ==========================================================
-# YES / NO KEYBOARD
-# ==========================================================
-
-YES_NO_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["✅ Yes", "❌ No"],
-    ],
+    [["🏭 Warehouse Engineer"], ["🛠 Technician"]],
     resize_keyboard=True,
     one_time_keyboard=True,
 )
 
-# ==========================================================
-# CANCEL KEYBOARD
-# ==========================================================
-
-CANCEL_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["❌ Cancel"],
-    ],
-    resize_keyboard=True,
-    one_time_keyboard=False,
-)
-
-# ==========================================================
-# REMOVE KEYBOARD
-# ==========================================================
-
-REMOVE_KEYBOARD = ReplyKeyboardMarkup(
-    [[]],
-    resize_keyboard=True,
-)
-
-# Add these at the bottom of keyboards.py
-
-# ==========================================================
-# AFTER RFC REGISTER KEYBOARD (WAREHOUSE)
-# ==========================================================
-
 AFTER_REGISTER_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["➕ Add More RFC", "⬅️ Back to Main Menu"],
-    ],
+    [["➕ Add More RFC"], ["⬅️ Back to Main Menu"]],
     resize_keyboard=True,
-    one_time_keyboard=False,
-    is_persistent=True,
-    input_field_placeholder="Choose an option...",
+    one_time_keyboard=True,
 )
-
-# ==========================================================
-# AFTER REPORT KEYBOARD (TECHNICIAN)
-# ==========================================================
 
 AFTER_REPORT_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["📋 Submit Another Report", "⬅️ Back to Main Menu"],
-    ],
-    resize_keyboard=True,
-    one_time_keyboard=False,
-    is_persistent=True,
-    input_field_placeholder="Choose an option...",
-)
-
-# ==========================================================
-# SAME / DIFFERENT KEYBOARD
-# ==========================================================
-
-SAME_DIFFERENT_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["🔄 Use Same Name", "✍️ Use Different Name"],
-    ],
+    [["📋 Submit Another Report"], ["⬅️ Back to Main Menu"]],
     resize_keyboard=True,
     one_time_keyboard=True,
 )
 
 SAME_RFC_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["📑 Use Same RFC", "📄 Use Different RFC"],
-    ],
+    [["📑 Use Same RFC"], ["📄 Use Different RFC"], ["⬅️ Back to Main Menu"]],
     resize_keyboard=True,
     one_time_keyboard=True,
 )
-# ==========================================================
-# NOT FOUND RFC KEYBOARD (TECHNICIAN)
-# ==========================================================
-
-RFC_NOT_FOUND_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["✍️ Try Another RFC"],
-        ["🔄 Change Name", "⬅️ Back to Main Menu"],
-    ],
-    resize_keyboard=True,
-    one_time_keyboard=True,
-)
-
-
-# ==========================================================
-# NO RFCS AVAILABLE KEYBOARD
-# ==========================================================
-
-NO_RFC_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["⬅️ Back to Main Menu"],
-    ],
-    resize_keyboard=True,
-    one_time_keyboard=True,
-)
-
-
-# ==========================================================
-# PREVIEW & CONFIRM KEYBOARD
-# ==========================================================
 
 PREVIEW_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["✅ Confirm & Submit"],
-        ["✏️ Edit Answers", "❌ Cancel Report"],
-    ],
+    [["✅ Confirm & Submit"], ["✏️ Edit Answers", "❌ Cancel Report"]],
     resize_keyboard=True,
     one_time_keyboard=True,
 )
 
 CANCEL_EDIT_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["❌ Cancel Editing"],
-    ],
+    [["❌ Cancel Editing"]],
     resize_keyboard=True,
     one_time_keyboard=True,
 )
+
+RFC_NOT_FOUND_KEYBOARD = ReplyKeyboardMarkup(
+    [["✍️ Try Another RFC"], ["⬅️ Back to Main Menu"]],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)
+
+NO_RFC_KEYBOARD = ReplyKeyboardMarkup(
+    [["⬅️ Back to Main Menu"]],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)
+
+FINISH_KEYBOARD = ReplyKeyboardMarkup(
+    [["🔄 New Report"], ["❌ Exit"]],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)
+
+
+# ==========================================================
+# DYNAMIC KEYBOARD HELPERS
+# ==========================================================
+
+def get_warehouse_keyboard(warehouses_list: list):
+    """Generates a reply keyboard listing unique warehouses."""
+    buttons = [[wh] for wh in warehouses_list]
+    buttons.append(["⬅️ Back to Main Menu"])
+    return ReplyKeyboardMarkup(buttons, resize_keyboard=True, one_time_keyboard=True)
+
+
+def get_rfc_keyboard(rfcs_list: list):
+    """Generates a reply keyboard listing RFC IDs for a selected warehouse."""
+    buttons = [[rfc] for rfc in rfcs_list]
+    buttons.append(["⬅️ Back to Main Menu"])
+    return ReplyKeyboardMarkup(buttons, resize_keyboard=True, one_time_keyboard=True)

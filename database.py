@@ -50,7 +50,8 @@ def rfc_exists(rfc: str) -> bool:
         sheet = get_worksheet()
         cell = sheet.find(rfc.upper())
         return cell is not None
-    except gspread.exceptions.CellNotFound:
+    except (gspread.CellNotFound, gspread.exceptions.GSpreadException):
+        # Cell wasn't found, meaning RFC does NOT exist yet
         return False
     except Exception as e:
         logger.error(f"Error checking if RFC exists: {e}")

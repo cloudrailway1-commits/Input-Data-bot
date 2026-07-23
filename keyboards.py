@@ -42,19 +42,31 @@ ROLE_KEYBOARD = ReplyKeyboardMarkup(
 )
 
 AFTER_REGISTER_KEYBOARD = ReplyKeyboardMarkup(
-    [["➕ Add More RFC"], ["⬅️ Back to Main Menu"], ["🏁 Finish Session"]],
+    [
+        ["➕ Add More RFC"],
+        ["🏬 Change Warehouse", "⬅️ Back to Main Menu"],
+        ["🏁 Finish Session"],
+    ],
     resize_keyboard=True,
     one_time_keyboard=True,
 )
 
 AFTER_REPORT_KEYBOARD = ReplyKeyboardMarkup(
-    [["📋 Submit Another Report"], ["⬅️ Back to Main Menu"], ["🏁 Finish Session"]],
+    [
+        ["📋 Submit Another Report"],
+        ["🏬 Change Warehouse", "⬅️ Back to Main Menu"],
+        ["🏁 Finish Session"],
+    ],
     resize_keyboard=True,
     one_time_keyboard=True,
 )
 
 SAME_RFC_KEYBOARD = ReplyKeyboardMarkup(
-    [["📑 Use Same RFC"], ["📄 Use Different RFC"], ["⬅️ Back to Main Menu"]],
+    [
+        ["📑 Use Same RFC"],
+        ["📄 Use Different RFC"],
+        ["🏬 Change Warehouse", "⬅️ Back to Main Menu"],
+    ],
     resize_keyboard=True,
     one_time_keyboard=True,
 )
@@ -72,7 +84,10 @@ CANCEL_EDIT_KEYBOARD = ReplyKeyboardMarkup(
 )
 
 RFC_NOT_FOUND_KEYBOARD = ReplyKeyboardMarkup(
-    [["✍️ Try Another RFC"], ["⬅️ Back to Main Menu"]],
+    [
+        ["✍️ Try Another RFC"],
+        ["🏬 Change Warehouse", "⬅️ Back to Main Menu"],
+    ],
     resize_keyboard=True,
     one_time_keyboard=True,
 )

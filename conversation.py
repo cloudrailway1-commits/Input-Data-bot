@@ -29,7 +29,8 @@ from keyboards import (
     AFTER_REPORT_KEYBOARD,
     SAME_DIFFERENT_KEYBOARD,
     SAME_RFC_KEYBOARD,
-    RFC_NOT_FOUND_KEYBOARD, 
+    RFC_NOT_FOUND_KEYBOARD,
+    NO_RFC_KEYBOARD,  # <-- Added
 )
 
 logger = logging.getLogger(__name__)
@@ -136,6 +137,25 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================================================
 # Enter RFC
 # ==========================================================
+
+async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        text = update.message.text.strip()
+
+        # Handle Back option if user clicks the button
+        if text == "⬅️ Back to Main Menu":
+            context.user_data.clear()
+            await update.message.reply_text(
+                "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
+                parse_mode="Markdown",
+                reply_markup=ROLE_KEYBOARD,
+            )
+            return ROLE
+
+        rfc = text.upper()
+        role = context.user_data.get("role", "")
+        
+        # ... rest of ask_rfc code remains the same ...
 
 async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:

@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 
 
 # ==========================================================
-# End Session Helper Function
+# Helper Functions
 # ==========================================================
 
 async def end_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -70,6 +70,17 @@ async def end_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=ReplyKeyboardRemove(),
     )
     return ConversationHandler.END
+
+
+async def show_warehouse_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Displays the warehouse button menu."""
+    keyboard = get_warehouse_keyboard()
+    await update.message.reply_text(
+        "🏬 *Select Warehouse / SO Location:*",
+        parse_mode="Markdown",
+        reply_markup=keyboard,
+    )
+    return WAREHOUSE
 
 
 # ==========================================================
@@ -131,16 +142,7 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return NAME
 
     context.user_data["name"] = name
-
-    # Full warehouse selection keyboard for both roles
-    keyboard = get_warehouse_keyboard()
-    await update.message.reply_text(
-        "🏬 *Select Warehouse / SO Location:*",
-        parse_mode="Markdown",
-        reply_markup=keyboard,
-    )
-
-    return WAREHOUSE
+    return await show_warehouse_selection(update, context)
 
 
 # ==========================================================
@@ -151,13 +153,7 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
     warehouse = update.message.text.strip()
 
     if warehouse == "⬅️ Back to Main Menu":
-        context.user_data.clear()
-        await update.message.reply_text(
-            "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
-            parse_mode="Markdown",
-            reply_markup=ROLE_KEYBOARD,
-        )
-        return ROLE
+        return await start(update, context)
 
     context.user_data["warehouse"] = warehouse
     role = context.user_data.get("role", "")
@@ -172,7 +168,7 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = (
                 f"🏬 Warehouse: *{warehouse}*\n"
                 f"⚠️ *No active RFCs currently available for this warehouse.*\n\n"
-                f"Please type the RFC ID manually if you have one, or type /start to go back:"
+                f"Please type the RFC ID manually, or choose an option below:"
             )
         else:
             rfc_list_formatted = "\n".join([f"• `{rfc}`" for rfc in available_rfcs])
@@ -216,13 +212,10 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text.strip()
 
         if text == "⬅️ Back to Main Menu":
-            context.user_data.clear()
-            await update.message.reply_text(
-                "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
-                parse_mode="Markdown",
-                reply_markup=ROLE_KEYBOARD,
-            )
-            return ROLE
+            return await start(update, context)
+
+        if text == "🏬 Change Warehouse":
+            return await show_warehouse_selection(update, context)
 
         rfc = text.upper()
         role = context.user_data.get("role", "")
@@ -300,14 +293,11 @@ async def handle_rfc_not_found(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return RFC
 
+    if text == "🏬 Change Warehouse":
+        return await show_warehouse_selection(update, context)
+
     if text == "⬅️ Back to Main Menu":
-        context.user_data.clear()
-        await update.message.reply_text(
-            "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
-            parse_mode="Markdown",
-            reply_markup=ROLE_KEYBOARD,
-        )
-        return ROLE
+        return await start(update, context)
 
     return await ask_rfc(update, context)
 
@@ -328,14 +318,11 @@ async def handle_after_register(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return RFC
 
+    if choice == "🏬 Change Warehouse":
+        return await show_warehouse_selection(update, context)
+
     if choice == "⬅️ Back to Main Menu":
-        context.user_data.clear()
-        await update.message.reply_text(
-            "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
-            parse_mode="Markdown",
-            reply_markup=ROLE_KEYBOARD,
-        )
-        return ROLE
+        return await start(update, context)
 
     if choice == "🏁 Finish Session":
         return await end_session(update, context)
@@ -561,14 +548,11 @@ async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
         return RFC
 
+    if choice == "🏬 Change Warehouse":
+        return await show_warehouse_selection(update, context)
+
     if choice == "⬅️ Back to Main Menu":
-        context.user_data.clear()
-        await update.message.reply_text(
-            "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
-            parse_mode="Markdown",
-            reply_markup=ROLE_KEYBOARD,
-        )
-        return ROLE
+        return await start(update, context)
 
     if choice == "🏁 Finish Session":
         return await end_session(update, context)
@@ -585,13 +569,7 @@ async def restart_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.strip()
 
     if choice == "🔄 New Report":
-        context.user_data.clear()
-        await update.message.reply_text(
-            "📦 *Fieldwork Material Bot*\n\nPlease select your role.",
-            parse_mode="Markdown",
-            reply_markup=ROLE_KEYBOARD,
-        )
-        return ROLE
+        return await start(update, context)
 
     if choice == "❌ Exit":
         return await end_session(update, context)

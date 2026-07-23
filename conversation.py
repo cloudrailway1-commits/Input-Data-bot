@@ -30,7 +30,7 @@ from keyboards import (
     SAME_DIFFERENT_KEYBOARD,
     SAME_RFC_KEYBOARD,
     RFC_NOT_FOUND_KEYBOARD,
-    NO_RFC_KEYBOARD,  # <-- Added
+    NO_RFC_KEYBOARD,
 )
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ async def choose_role(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["role"] = role
 
     if role == "🏭 Warehouse Engineer":
-        prompt = "🏢 Enter Warehouse Name:"
+        prompt = "🏢 Enter Warehouse / Engineer Name:"
     else:
         prompt = "👤 Enter Technician Name:"
 
@@ -120,14 +120,19 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{formatted_list}\n\n"
                 f"📄 Please enter the RFC ID you want to work on:"
             )
+            await update.message.reply_text(msg, parse_mode="Markdown")
+            return RFC
         else:
             msg = (
                 "⚠️ No active RFCs are currently available.\n\n"
-                "Please ask the Warehouse Engineer to register an RFC first."
+                "Please ask the Warehouse Engineer to register an RFC first, or select Back below:"
             )
-        
-        await update.message.reply_text(msg, parse_mode="Markdown")
-        return RFC
+            await update.message.reply_text(
+                msg, 
+                parse_mode="Markdown", 
+                reply_markup=NO_RFC_KEYBOARD
+            )
+            return RFC
 
     # For Warehouse Engineer
     await update.message.reply_text("📄 Enter new RFC ID to register:")
@@ -142,7 +147,7 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         text = update.message.text.strip()
 
-        # Handle Back option if user clicks the button
+        # Handle Back option if technician clicks the back button
         if text == "⬅️ Back to Main Menu":
             context.user_data.clear()
             await update.message.reply_text(
@@ -153,13 +158,6 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return ROLE
 
         rfc = text.upper()
-        role = context.user_data.get("role", "")
-        
-        # ... rest of ask_rfc code remains the same ...
-
-async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        rfc = update.message.text.strip().upper()
         role = context.user_data.get("role", "")
 
         # Warehouse Engineer Flow
@@ -194,8 +192,8 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Technician Flow
         if not rfc_exists(rfc):
             await update.message.reply_text(
-                f"❌ RFC *{rfc}* not found in the sheet.\n\n"
-                "Please choose an option below or type another RFC ID directly:",
+                f"❌ RFC *{rfc}* not found.\n\n"
+                "Please select an option below or type another RFC ID directly:",
                 parse_mode="Markdown",
                 reply_markup=RFC_NOT_FOUND_KEYBOARD,
             )
@@ -212,6 +210,7 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Question 1/{TOTAL_QUESTIONS}\n\n"
             f"{question}:",
             parse_mode="Markdown",
+            reply_markup=ReplyKeyboardRemove(),
         )
 
         return QUESTION
@@ -219,6 +218,7 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"⚠️ Error: {e}")
         return RFC
+
 
 # ==========================================================
 # Handle RFC Not Found Options
@@ -260,8 +260,7 @@ async def handle_rfc_not_found(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return ROLE
 
-    # If the user directly typed an RFC ID instead of clicking a button:
-    context.user_data["typed_rfc"] = text
+    # Direct re-entry of RFC ID
     return await ask_rfc(update, context)
 
 
@@ -396,10 +395,11 @@ async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE
         if available_list:
             formatted_list = "\n".join([f"• *{item[0]}* — Warehouse: {item[1]}" for item in available_list])
             msg = f"📋 *Available RFCs & Warehouses:*\n\n{formatted_list}\n\n📄 Enter RFC ID:"
+            await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
         else:
-            msg = "⚠️ No active RFCs available. Enter RFC ID manually:"
+            msg = "⚠️ No active RFCs available. Select Back below or ask Warehouse Engineer to register one:"
+            await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=NO_RFC_KEYBOARD)
 
-        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
         return RFC
 
     if choice == "⬅️ Back to Main Menu":

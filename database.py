@@ -1,6 +1,6 @@
 import logging
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 
 logger = logging.getLogger(__name__)
 
@@ -8,21 +8,20 @@ logger = logging.getLogger(__name__)
 # GOOGLE SHEETS SETUP
 # ==========================================================
 
-# Define Google Sheets scope and credentials
-SCOPE = [
-    "https://spreadsheets.google.com/feeds",
+# Modern Google Auth Scopes
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
 
-# Name of your Google Sheet
 SPREADSHEET_NAME = "Fieldwork_Material_Database"
 WORKSHEET_NAME = "RFC_Data"
 
 def get_worksheet():
-    """Connects to Google Sheets API and returns the target worksheet."""
+    """Connects to Google Sheets API using google-auth and returns target worksheet."""
     try:
-        # Load credentials from JSON keyfile
-        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
+        # Load credentials using google.oauth2.service_account
+        creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
         client = gspread.authorize(creds)
         spreadsheet = client.open(SPREADSHEET_NAME)
         return spreadsheet.worksheet(WORKSHEET_NAME)
@@ -59,13 +58,9 @@ def rfc_exists(rfc: str) -> bool:
 
 
 def add_rfc(rfc: str, warehouse: str, engineer_name: str) -> bool:
-    """
-    Registers a new RFC under a specific Warehouse.
-    Expected Sheet Columns: [RFC ID, Warehouse, Engineer, Technician, Status, Answers...]
-    """
+    """Registers a new RFC under a specific Warehouse."""
     try:
         sheet = get_worksheet()
-        # Append new RFC record (Technician & Status start empty)
         sheet.append_row([rfc.upper(), warehouse, engineer_name, "", "AVAILABLE"])
         logger.info(f"Successfully added RFC: {rfc} under {warehouse}")
         return True
@@ -84,11 +79,7 @@ def get_rfcs_by_warehouse(warehouse: str) -> list[str]:
 
 
 def get_available_rfcs_by_warehouse(warehouse: str) -> list[str]:
-    """
-    Single-Use Enforcement:
-    Returns ONLY active RFCs under the given warehouse that have NOT 
-    been submitted by a technician yet (i.e. Technician column is empty or Status is AVAILABLE).
-    """
+    """Returns ONLY active RFCs that have NOT been completed."""
     records = get_all_rows()
     available = []
     
@@ -104,10 +95,7 @@ def get_available_rfcs_by_warehouse(warehouse: str) -> list[str]:
 
 
 def find_rfc(rfc: str):
-    """
-    Finds and returns the 1-based row index in Google Sheets for a given RFC.
-    Returns row index (int) or None if not found.
-    """
+    """Finds and returns the row index in Google Sheets for a given RFC."""
     try:
         sheet = get_worksheet()
         cell = sheet.find(rfc.upper())
@@ -118,19 +106,13 @@ def find_rfc(rfc: str):
 
 
 def update_row_answers(row: int, technician: str, answers: list[str]) -> bool:
-    """
-    Updates the database row when a Technician submits a report.
-    Sets Technician Name, Status to 'COMPLETED', and fills in question answers.
-    """
+    """Updates the database row when a Technician submits a report."""
     try:
         sheet = get_worksheet()
         
-        # Column 4: Technician Name
-        # Column 5: Status ('COMPLETED')
         sheet.update_cell(row, 4, technician)
         sheet.update_cell(row, 5, "COMPLETED")
 
-        # Starting from Column 6 onwards: Write all question answers
         for offset, answer in enumerate(answers):
             sheet.update_cell(row, 6 + offset, str(answer))
 

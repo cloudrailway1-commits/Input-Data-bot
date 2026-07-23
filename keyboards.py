@@ -42,13 +42,13 @@ ROLE_KEYBOARD = ReplyKeyboardMarkup(
 )
 
 AFTER_REGISTER_KEYBOARD = ReplyKeyboardMarkup(
-    [["➕ Add More RFC"], ["⬅️ Back to Main Menu"]],
+    [["➕ Add More RFC"], ["⬅️ Back to Main Menu"], ["🏁 Finish Session"]],
     resize_keyboard=True,
     one_time_keyboard=True,
 )
 
 AFTER_REPORT_KEYBOARD = ReplyKeyboardMarkup(
-    [["📋 Submit Another Report"], ["⬅️ Back to Main Menu"]],
+    [["📋 Submit Another Report"], ["⬅️ Back to Main Menu"], ["🏁 Finish Session"]],
     resize_keyboard=True,
     one_time_keyboard=True,
 )

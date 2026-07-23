@@ -54,6 +54,24 @@ logger = logging.getLogger(__name__)
     EDIT_SELECT,
 ) = range(11)
 
+
+# ==========================================================
+# End Session Helper Function
+# ==========================================================
+
+async def end_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Gracefully ends the session and cleans user data."""
+    context.user_data.clear()
+    await update.message.reply_text(
+        "👋 *Session Ended.*\n\n"
+        "Thank you for using Fieldwork Material Bot!\n"
+        "Type /start anytime to begin again.",
+        parse_mode="Markdown",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    return ConversationHandler.END
+
+
 # ==========================================================
 # /start
 # ==========================================================
@@ -292,23 +310,6 @@ async def handle_rfc_not_found(update: Update, context: ContextTypes.DEFAULT_TYP
         return ROLE
 
     return await ask_rfc(update, context)
-
-
-# ==========================================================
-# End Session Helper Function
-# ==========================================================
-
-async def end_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gracefully ends the session and cleans user data."""
-    context.user_data.clear()
-    await update.message.reply_text(
-        "👋 *Session Ended.*\n\n"
-        "Thank you for using Fieldwork Material Bot!\n"
-        "Type /start anytime to begin again.",
-        parse_mode="Markdown",
-        reply_markup=ReplyKeyboardRemove(),
-    )
-    return ConversationHandler.END
 
 
 # ==========================================================

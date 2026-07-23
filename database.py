@@ -77,21 +77,18 @@ def get_available_rfcs_by_warehouse(warehouse: str) -> list[str]:
     target_wh = str(warehouse).strip().upper()
     for row in records:
         row_wh = ""
-        tech = ""
         status = ""
         rfc_id = ""
         for key, val in row.items():
             clean_key = str(key).strip().lower()
             if clean_key == "warehouse":
                 row_wh = str(val).strip().upper()
-            elif clean_key == "technician":
-                tech = str(val).strip()
             elif clean_key == "status":
                 status = str(val).strip().upper()
             elif clean_key in ["rfc id", "rfc", "rfc_id"]:
                 rfc_id = str(val).strip().upper()
 
-        if row_wh == target_wh and (not tech) and status != "COMPLETED":
+        if row_wh == target_wh and status != "COMPLETED":
             if rfc_id:
                 available.append(rfc_id)
     return available

@@ -1,9 +1,5 @@
 from telegram import ReplyKeyboardMarkup
 
-# ==========================================================
-# FIXED WAREHOUSE LIST
-# ==========================================================
-
 FIXED_WAREHOUSES = [
     "ACEH",
     "SO LANGSA",
@@ -29,11 +25,6 @@ FIXED_WAREHOUSES = [
     "SO RANTAU PRAPAT",
     "SO SIBLOGA",
 ]
-
-
-# ==========================================================
-# STATIC KEYBOARDS
-# ==========================================================
 
 ROLE_KEYBOARD = ReplyKeyboardMarkup(
     [["🏭 Warehouse Engineer"], ["🛠 Technician"]],
@@ -98,13 +89,16 @@ FINISH_KEYBOARD = ReplyKeyboardMarkup(
     one_time_keyboard=True,
 )
 
+TECHNICIAN_RFC_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["🏬 Change Warehouse", "⬅️ Back to Main Menu"],
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)
 
-# ==========================================================
-# DYNAMIC KEYBOARD HELPERS
-# ==========================================================
 
 def get_warehouse_keyboard():
-    """Generates a 2-column reply keyboard with all predefined warehouses."""
     buttons = []
     for i in range(0, len(FIXED_WAREHOUSES), 2):
         row = [FIXED_WAREHOUSES[i]]
@@ -114,13 +108,4 @@ def get_warehouse_keyboard():
 
     buttons.append(["⬅️ Back to Main Menu"])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True, one_time_keyboard=True)
-
-# Add this keyboard definition to keyboards.py
-
-TECHNICIAN_RFC_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["🏬 Change Warehouse", "⬅️ Back to Main Menu"],
-    ],
-    resize_keyboard=True,
-    one_time_keyboard=True,
-)
+    

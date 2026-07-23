@@ -31,6 +31,7 @@ from keyboards import (
     RFC_NOT_FOUND_KEYBOARD,
     PREVIEW_KEYBOARD,
     CANCEL_EDIT_KEYBOARD,
+    TECHNICIAN_RFC_KEYBOARD,
     get_warehouse_keyboard,
 )
 
@@ -159,7 +160,7 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
     role = context.user_data.get("role", "")
 
     # ------------------------------------------
-    # Technician Flow: Show active RFC list as chat text message
+    # Technician Flow: Show active RFC list with options
     # ------------------------------------------
     if role == "🛠 Technician":
         available_rfcs = get_available_rfcs_by_warehouse(warehouse)
@@ -176,13 +177,13 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🏬 Warehouse: *{warehouse}*\n\n"
                 f"📋 *Available RFC IDs:*\n"
                 f"{rfc_list_formatted}\n\n"
-                f"👇 *Please type the RFC ID to proceed:*"
+                f"👇 *Please type the RFC ID to proceed, or choose an option below:*"
             )
 
         await update.message.reply_text(
             msg,
             parse_mode="Markdown",
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=TECHNICIAN_RFC_KEYBOARD,
         )
         return RFC
 
@@ -198,7 +199,7 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🏬 Selected Warehouse: *{warehouse}*{formatted_existing}\n\n"
         f"📄 Enter new RFC ID to register under this Warehouse:",
         parse_mode="Markdown",
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=TECHNICIAN_RFC_KEYBOARD,
     )
     return RFC
 
@@ -229,6 +230,7 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(
                     f"❌ RFC *{rfc}* already exists.\n\nPlease enter a different RFC ID:",
                     parse_mode="Markdown",
+                    reply_markup=TECHNICIAN_RFC_KEYBOARD,
                 )
                 return RFC
 
@@ -289,7 +291,7 @@ async def handle_rfc_not_found(update: Update, context: ContextTypes.DEFAULT_TYP
     if text == "✍️ Try Another RFC":
         await update.message.reply_text(
             "📄 Please type the RFC ID again:",
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=TECHNICIAN_RFC_KEYBOARD,
         )
         return RFC
 
@@ -314,7 +316,7 @@ async def handle_after_register(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text(
             f"Adding another RFC under Warehouse: *{warehouse}*\n\n📄 Enter new RFC ID:",
             parse_mode="Markdown",
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=TECHNICIAN_RFC_KEYBOARD,
         )
         return RFC
 
@@ -540,12 +542,16 @@ async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"🏬 Warehouse: *{warehouse}*\n\n"
                 f"📋 *Available RFC IDs:*\n"
                 f"{rfc_list_formatted}\n\n"
-                f"👇 *Please type the RFC ID to proceed:*"
+                f"👇 *Please type the RFC ID to proceed, or choose an option below:*"
             )
         else:
-            msg = f"🏬 Warehouse: *{warehouse}*\n⚠️ *No active RFCs available.* Please type the RFC ID directly:"
+            msg = f"🏬 Warehouse: *{warehouse}*\n⚠️ *No active RFCs available.* Please type the RFC ID directly, or choose an option below:"
 
-        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text(
+            msg,
+            parse_mode="Markdown",
+            reply_markup=TECHNICIAN_RFC_KEYBOARD,
+        )
         return RFC
 
     if choice == "🏬 Change Warehouse":

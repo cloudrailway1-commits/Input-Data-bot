@@ -114,3 +114,13 @@ def get_warehouse_keyboard():
 
     buttons.append(["⬅️ Back to Main Menu"])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True, one_time_keyboard=True)
+
+# Add this keyboard definition to keyboards.py
+
+TECHNICIAN_RFC_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["🏬 Change Warehouse", "⬅️ Back to Main Menu"],
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)

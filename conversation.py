@@ -32,6 +32,7 @@ from keyboards import (
     PREVIEW_KEYBOARD,
     CANCEL_EDIT_KEYBOARD,
     TECHNICIAN_RFC_KEYBOARD,
+    FIXED_WAREHOUSES,
     get_warehouse_keyboard,
 )
 
@@ -155,6 +156,16 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if warehouse == "⬅️ Back to Main Menu":
         return await start(update, context)
+
+    # Validate that the warehouse choice is strictly from the allowed list
+    if warehouse not in FIXED_WAREHOUSES:
+        await update.message.reply_text(
+            "⚠️ *Invalid Warehouse Selection.*\n"
+            "Please choose a warehouse by tapping one of the buttons below:",
+            parse_mode="Markdown",
+            reply_markup=get_warehouse_keyboard(),
+        )
+        return WAREHOUSE
 
     context.user_data["warehouse"] = warehouse
     role = context.user_data.get("role", "")

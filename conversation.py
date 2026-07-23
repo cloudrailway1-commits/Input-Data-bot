@@ -16,7 +16,6 @@ from database import (
     rfc_exists,
     get_available_rfcs_by_warehouse,
     get_rfcs_by_warehouse,
-    get_all_warehouses,
     get_available_warehouses,
     find_rfc,
     update_row_answers,
@@ -25,6 +24,7 @@ from database import (
 from questions import QUESTIONS, TOTAL_QUESTIONS
 
 from keyboards import (
+    FIXED_WAREHOUSES,
     ROLE_KEYBOARD,
     FINISH_KEYBOARD,
     AFTER_REGISTER_KEYBOARD,
@@ -120,7 +120,7 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     role = context.user_data.get("role", "")
 
     # ------------------------------------------
-    # Technician Flow: Select Warehouse
+    # Technician Flow: Select active Warehouse
     # ------------------------------------------
     if role == "🛠 Technician":
         warehouses = get_available_warehouses()
@@ -135,34 +135,27 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         keyboard = get_warehouse_keyboard(warehouses)
         await update.message.reply_text(
-            "🏬 *Select Warehouse Category:*",
+            "🏬 *Select Warehouse / SO Location:*",
             parse_mode="Markdown",
             reply_markup=keyboard,
         )
         return WAREHOUSE
 
     # ------------------------------------------
-    # Warehouse Engineer Flow: Choose or Enter Warehouse
+    # Warehouse Engineer Flow: Show predefined Warehouse list
     # ------------------------------------------
-    existing_warehouses = get_all_warehouses()
-    if existing_warehouses:
-        keyboard = get_warehouse_keyboard(existing_warehouses)
-        await update.message.reply_text(
-            "🏬 *Select Warehouse Category* or type a new Warehouse name directly:",
-            parse_mode="Markdown",
-            reply_markup=keyboard,
-        )
-    else:
-        await update.message.reply_text(
-            "🏬 Enter Warehouse Category Name:",
-            reply_markup=ReplyKeyboardRemove(),
-        )
+    keyboard = get_warehouse_keyboard(FIXED_WAREHOUSES)
+    await update.message.reply_text(
+        "🏬 *Select Warehouse / SO Location:*",
+        parse_mode="Markdown",
+        reply_markup=keyboard,
+    )
 
     return WAREHOUSE
 
 
 # ==========================================================
-# Select/Enter Warehouse & Ask RFC ID
+# Select Warehouse & Ask RFC ID
 # ==========================================================
 
 async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):

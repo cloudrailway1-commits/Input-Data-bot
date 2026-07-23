@@ -14,6 +14,7 @@ from telegram.ext import (
 from database import (
     add_rfc,
     rfc_exists,
+    is_rfc_available,
     get_available_rfcs_by_warehouse,
     get_rfcs_by_warehouse,
     find_rfc,
@@ -27,7 +28,6 @@ from keyboards import (
     FINISH_KEYBOARD,
     AFTER_REGISTER_KEYBOARD,
     AFTER_REPORT_KEYBOARD,
-    SAME_RFC_KEYBOARD,
     RFC_NOT_FOUND_KEYBOARD,
     PREVIEW_KEYBOARD,
     CANCEL_EDIT_KEYBOARD,
@@ -157,7 +157,6 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if warehouse == "⬅️ Back to Main Menu":
         return await start(update, context)
 
-    # Validate that the warehouse choice is strictly from the allowed list
     if warehouse not in FIXED_WAREHOUSES:
         await update.message.reply_text(
             "⚠️ *Invalid Warehouse Selection.*\n"
@@ -171,7 +170,7 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
     role = context.user_data.get("role", "")
 
     # ------------------------------------------
-    # Technician Flow: Show active RFC list with options
+    # Technician Flow: Show active RFC list
     # ------------------------------------------
     if role == "🛠 Technician":
         available_rfcs = get_available_rfcs_by_warehouse(warehouse)
@@ -262,13 +261,21 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ------------------------------------------
         # Technician Flow
         # ------------------------------------------
-        if not rfc_exists(rfc):
-            await update.message.reply_text(
-                f"❌ RFC *{rfc}* not found under Warehouse *{warehouse}*.\n\n"
-                "Please select an option below:",
-                parse_mode="Markdown",
-                reply_markup=RFC_NOT_FOUND_KEYBOARD,
-            )
+        if not is_rfc_available(rfc):
+            if rfc_exists(rfc):
+                await update.message.reply_text(
+                    f"⚠️ RFC *{rfc}* has already been used and submitted.\n\n"
+                    "RFC IDs are single-use only. Please select an option below:",
+                    parse_mode="Markdown",
+                    reply_markup=RFC_NOT_FOUND_KEYBOARD,
+                )
+            else:
+                await update.message.reply_text(
+                    f"❌ RFC *{rfc}* not found under Warehouse *{warehouse}*.\n\n"
+                    "Please select an option below:",
+                    parse_mode="Markdown",
+                    reply_markup=RFC_NOT_FOUND_KEYBOARD,
+                )
             return RFC_NOT_FOUND
 
         context.user_data["rfc"] = rfc
@@ -555,27 +562,12 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.strip()
 
-    if choice == "📋 Submit Another Report":
-        await update.message.reply_text(
-            f"Current RFC ID: *{context.user_data.get('rfc')}*\n\n"
-            "Do you want to work on the same RFC or select a different one?",
-            parse_mode="Markdown",
-            reply_markup=SAME_RFC_KEYBOARD,
-        )
-        return AFTER_REPORT
-
-    if choice == "📑 Use Same RFC":
+    if choice in ["📋 Submit Another Report", "📄 Use Different RFC"]:
+        # Reset state to force picking a brand-new RFC ID
+        context.user_data.pop("rfc", None)
         context.user_data["answers"] = []
         context.user_data["question_index"] = 0
-        question = QUESTIONS[0][0]
 
-        await update.message.reply_text(
-            f"Question 1/{TOTAL_QUESTIONS}\n\n{question}:",
-            reply_markup=ReplyKeyboardRemove(),
-        )
-        return QUESTION
-
-    if choice == "📄 Use Different RFC":
         warehouse = context.user_data.get("warehouse", "")
         available_rfcs = get_available_rfcs_by_warehouse(warehouse)
 
@@ -588,7 +580,10 @@ async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"👇 *Please type the RFC ID to proceed, or choose an option below:*"
             )
         else:
-            msg = f"🏬 Warehouse: *{warehouse}*\n⚠️ *No active RFCs available.* Please type the RFC ID directly, or choose an option below:"
+            msg = (
+                f"🏬 Warehouse: *{warehouse}*\n"
+                f"⚠️ *No active RFCs available.* Please type the RFC ID directly, or choose an option below:"
+            )
 
         await update.message.reply_text(
             msg,

@@ -277,6 +277,7 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return QUESTION
 
     except Exception as e:
+        logger.error(f"Error in ask_rfc: {e}")
         await update.message.reply_text(f"⚠️ Error: {e}")
         return RFC
 
@@ -338,30 +339,36 @@ async def handle_after_register(update: Update, context: ContextTypes.DEFAULT_TY
 # ==========================================================
 
 async def ask_questions(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    answer = update.message.text.strip()
+    try:
+        answer = update.message.text.strip()
 
-    if context.user_data.get("editing_index") is not None:
-        idx = context.user_data["editing_index"]
-        context.user_data["answers"][idx] = answer
-        context.user_data["editing_index"] = None
-        await update.message.reply_text("✅ Answer updated successfully!")
+        if context.user_data.get("editing_index") is not None:
+            idx = context.user_data["editing_index"]
+            context.user_data["answers"][idx] = answer
+            context.user_data["editing_index"] = None
+            await update.message.reply_text("✅ Answer updated successfully!")
+            return await show_preview(update, context)
+
+        context.user_data["answers"].append(answer)
+        context.user_data["question_index"] += 1
+
+        index = context.user_data["question_index"]
+
+        if index < TOTAL_QUESTIONS:
+            question = QUESTIONS[index][0]
+
+            await update.message.reply_text(
+                f"Question {index + 1}/{TOTAL_QUESTIONS}\n\n"
+                f"{question}:"
+            )
+            return QUESTION
+
         return await show_preview(update, context)
 
-    context.user_data["answers"].append(answer)
-    context.user_data["question_index"] += 1
-
-    index = context.user_data["question_index"]
-
-    if index < TOTAL_QUESTIONS:
-        question = QUESTIONS[index][0]
-
-        await update.message.reply_text(
-            f"Question {index + 1}/{TOTAL_QUESTIONS}\n\n"
-            f"{question}:"
-        )
+    except Exception as e:
+        logger.error(f"Error in ask_questions: {e}")
+        await update.message.reply_text("⚠️ An error occurred while processing your input. Please try typing your answer again.")
         return QUESTION
-
-    return await show_preview(update, context)
 
 
 # ==========================================================
@@ -369,33 +376,39 @@ async def ask_questions(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================================================
 
 async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    warehouse = context.user_data.get("warehouse", "N/A")
-    rfc = context.user_data.get("rfc", "N/A")
-    name = context.user_data.get("name", "N/A")
-    answers = context.user_data.get("answers", [])
+    try:
+        warehouse = context.user_data.get("warehouse", "N/A")
+        rfc = context.user_data.get("rfc", "N/A")
+        name = context.user_data.get("name", "N/A")
+        answers = context.user_data.get("answers", [])
 
-    preview_lines = [
-        "📋 *REPORT PREVIEW*",
-        "----------------------------------",
-        f"👤 *Technician:* {name}",
-        f"🏬 *Warehouse:* {warehouse}",
-        f"📄 *RFC ID:* {rfc}",
-        "----------------------------------",
-    ]
+        preview_lines = [
+            "📋 *REPORT PREVIEW*",
+            "----------------------------------",
+            f"👤 *Technician:* {name}",
+            f"🏬 *Warehouse:* {warehouse}",
+            f"📄 *RFC ID:* {rfc}",
+            "----------------------------------",
+        ]
 
-    for i, ans in enumerate(answers):
-        q_label = QUESTIONS[i][0]
-        preview_lines.append(f"*{i + 1}. {q_label}:*\n└ {ans}")
+        for i, ans in enumerate(answers):
+            q_label = QUESTIONS[i][0]
+            preview_lines.append(f"*{i + 1}. {q_label}:*\n└ {ans}")
 
-    preview_lines.append("----------------------------------")
-    preview_lines.append("Please verify your answers before submitting:")
+        preview_lines.append("----------------------------------")
+        preview_lines.append("Please verify your answers before submitting:")
 
-    await update.message.reply_text(
-        "\n".join(preview_lines),
-        parse_mode="Markdown",
-        reply_markup=PREVIEW_KEYBOARD,
-    )
-    return PREVIEW
+        await update.message.reply_text(
+            "\n".join(preview_lines),
+            parse_mode="Markdown",
+            reply_markup=PREVIEW_KEYBOARD,
+        )
+        return PREVIEW
+
+    except Exception as e:
+        logger.error(f"Error in show_preview: {e}")
+        await update.message.reply_text("⚠️ Unable to render report preview.", reply_markup=PREVIEW_KEYBOARD)
+        return PREVIEW
 
 
 # ==========================================================
@@ -403,34 +416,47 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================================================
 
 async def handle_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
+    try:
+        text = update.message.text.strip()
 
-    if text == "✅ Confirm & Submit":
-        return await finish(update, context)
+        if text == "✅ Confirm & Submit":
+            return await finish(update, context)
 
-    if text == "✏️ Edit Answers":
-        options = "\n".join(
-            [f"{i + 1}. {QUESTIONS[i][0]}" for i in range(TOTAL_QUESTIONS)]
-        )
+        if text == "✏️ Edit Answers":
+            options = "\n".join(
+                [f"{i + 1}. {QUESTIONS[i][0]}" for i in range(TOTAL_QUESTIONS)]
+            )
+            await update.message.reply_text(
+                f"✏️ *Which answer would you like to edit?*\n\n"
+                f"{options}\n\n"
+                f"Type the question number (1-{TOTAL_QUESTIONS}):",
+                parse_mode="Markdown",
+                reply_markup=CANCEL_EDIT_KEYBOARD,
+            )
+            return EDIT_SELECT
+
+        if text == "❌ Cancel Report":
+            context.user_data.clear()
+            await update.message.reply_text(
+                "❌ Report submission cancelled.",
+                reply_markup=ReplyKeyboardRemove(),
+            )
+            return await start(update, context)
+
         await update.message.reply_text(
-            f"✏️ *Which answer would you like to edit?*\n\n"
-            f"{options}\n\n"
-            f"Type the question number (1-{TOTAL_QUESTIONS}):",
-            parse_mode="Markdown",
-            reply_markup=CANCEL_EDIT_KEYBOARD,
+            "Please select an option from the keyboard.", 
+            reply_markup=PREVIEW_KEYBOARD
         )
-        return EDIT_SELECT
+        return PREVIEW
 
-    if text == "❌ Cancel Report":
-        context.user_data.clear()
+    except Exception as e:
+        logger.error(f"Error in handle_preview: {e}")
         await update.message.reply_text(
-            "❌ Report submission cancelled.",
+            "⚠️ An unexpected error occurred while processing your selection.\n"
+            "Resetting to main menu...",
             reply_markup=ReplyKeyboardRemove(),
         )
         return await start(update, context)
-
-    await update.message.reply_text("Please select an option from the keyboard.", reply_markup=PREVIEW_KEYBOARD)
-    return PREVIEW
 
 
 # ==========================================================
@@ -438,33 +464,38 @@ async def handle_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================================================
 
 async def handle_edit_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
+    try:
+        text = update.message.text.strip()
 
-    if text == "❌ Cancel Editing":
+        if text == "❌ Cancel Editing":
+            return await show_preview(update, context)
+
+        if text.isdigit():
+            num = int(text)
+            if 1 <= num <= TOTAL_QUESTIONS:
+                idx = num - 1
+                context.user_data["editing_index"] = idx
+                question = QUESTIONS[idx][0]
+                current_ans = context.user_data["answers"][idx]
+
+                await update.message.reply_text(
+                    f"Editing Question {num}:\n*{question}*\n\n"
+                    f"Current Answer: _{current_ans}_\n\n"
+                    f"Please enter your new answer:",
+                    parse_mode="Markdown",
+                    reply_markup=ReplyKeyboardRemove(),
+                )
+                return QUESTION
+
+        await update.message.reply_text(
+            f"⚠️ Invalid choice. Please enter a number between 1 and {TOTAL_QUESTIONS}:",
+            reply_markup=CANCEL_EDIT_KEYBOARD,
+        )
+        return EDIT_SELECT
+
+    except Exception as e:
+        logger.error(f"Error in handle_edit_selection: {e}")
         return await show_preview(update, context)
-
-    if text.isdigit():
-        num = int(text)
-        if 1 <= num <= TOTAL_QUESTIONS:
-            idx = num - 1
-            context.user_data["editing_index"] = idx
-            question = QUESTIONS[idx][0]
-            current_ans = context.user_data["answers"][idx]
-
-            await update.message.reply_text(
-                f"Editing Question {num}:\n*{question}*\n\n"
-                f"Current Answer: _{current_ans}_\n\n"
-                f"Please enter your new answer:",
-                parse_mode="Markdown",
-                reply_markup=ReplyKeyboardRemove(),
-            )
-            return QUESTION
-
-    await update.message.reply_text(
-        f"⚠️ Invalid choice. Please enter a number between 1 and {TOTAL_QUESTIONS}:",
-        reply_markup=CANCEL_EDIT_KEYBOARD,
-    )
-    return EDIT_SELECT
 
 
 # ==========================================================
@@ -500,6 +531,7 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return AFTER_REPORT
 
     except Exception as e:
+        logger.error(f"Error in finish: {e}")
         await update.message.reply_text(f"❌ Failed to save report.\n\n{e}", reply_markup=FINISH_KEYBOARD)
         context.user_data.clear()
         return RESTART

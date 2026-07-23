@@ -52,16 +52,6 @@ AFTER_REPORT_KEYBOARD = ReplyKeyboardMarkup(
     one_time_keyboard=True,
 )
 
-SAME_RFC_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["📑 Use Same RFC"],
-        ["📄 Use Different RFC"],
-        ["🏬 Change Warehouse", "⬅️ Back to Main Menu"],
-    ],
-    resize_keyboard=True,
-    one_time_keyboard=True,
-)
-
 PREVIEW_KEYBOARD = ReplyKeyboardMarkup(
     [["✅ Confirm & Submit"], ["✏️ Edit Answers", "❌ Cancel Report"]],
     resize_keyboard=True,
@@ -108,4 +98,3 @@ def get_warehouse_keyboard():
 
     buttons.append(["⬅️ Back to Main Menu"])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True, one_time_keyboard=True)
-    

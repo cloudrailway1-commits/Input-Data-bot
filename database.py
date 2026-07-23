@@ -34,7 +34,7 @@ def get_all_rows() -> list[dict]:
         for row in records:
             clean_row = {}
             for k, v in row.items():
-                clean_key = str(k).strip().lower().replace(" ", "_")
+                clean_key = str(k).strip().lower().replace(" ", "_").replace("/", "_")
                 clean_row[clean_key] = str(v).strip() if v is not None else ""
             normalized_records.append(clean_row)
         return normalized_records
@@ -43,14 +43,29 @@ def get_all_rows() -> list[dict]:
         return []
 
 
+def _extract_warehouse(row: dict) -> str:
+    """Helper to extract warehouse value regardless of column header variations."""
+    for key in ["warehouse", "location", "so_location", "warehouse___so_location", "so"]:
+        if key in row and row[key]:
+            return row[key].upper()
+    return ""
+
+
+def _extract_rfc_id(row: dict) -> str:
+    """Helper to extract RFC ID value regardless of column header variations."""
+    for key in ["rfc_id", "rfc", "rfc_number", "id"]:
+        if key in row and row[key]:
+            return row[key].upper()
+    return ""
+
+
 def rfc_exists(rfc: str) -> bool:
     try:
         target = str(rfc).strip().upper()
         records = get_all_rows()
         for row in records:
-            for key in ["rfc_id", "rfc", "rfc_number"]:
-                if row.get(key, "").upper() == target:
-                    return True
+            if _extract_rfc_id(row) == target:
+                return True
         return False
     except Exception as e:
         logger.error(f"Error checking if RFC exists: {e}")
@@ -60,7 +75,7 @@ def rfc_exists(rfc: str) -> bool:
 def add_rfc(rfc: str, warehouse: str, engineer_name: str) -> bool:
     try:
         sheet = get_worksheet()
-        # Row layout: [RFC ID, Warehouse, Engineer, Technician, Status]
+        # Appends directly across Columns A to E
         sheet.append_row([
             str(rfc).strip().upper(),
             str(warehouse).strip().upper(),
@@ -81,13 +96,8 @@ def get_rfcs_by_warehouse(warehouse: str) -> list[str]:
     target_wh = str(warehouse).strip().upper()
 
     for row in records:
-        row_wh = row.get("warehouse", "").upper()
-        rfc_id = ""
-        for key in ["rfc_id", "rfc", "rfc_number"]:
-            if key in row:
-                rfc_id = row[key].upper()
-                break
-
+        row_wh = _extract_warehouse(row)
+        rfc_id = _extract_rfc_id(row)
         if row_wh == target_wh and rfc_id:
             rfcs.append(rfc_id)
 
@@ -100,15 +110,10 @@ def get_available_rfcs_by_warehouse(warehouse: str) -> list[str]:
     target_wh = str(warehouse).strip().upper()
 
     for row in records:
-        row_wh = row.get("warehouse", "").upper()
+        row_wh = _extract_warehouse(row)
         status = row.get("status", "").upper()
         tech = row.get("technician", "")
-
-        rfc_id = ""
-        for key in ["rfc_id", "rfc", "rfc_number"]:
-            if key in row:
-                rfc_id = row[key].upper()
-                break
+        rfc_id = _extract_rfc_id(row)
 
         if row_wh == target_wh and status != "COMPLETED" and not tech:
             if rfc_id:
@@ -122,9 +127,8 @@ def find_rfc(rfc: str):
         target = str(rfc).strip().upper()
         records = get_all_rows()
         for idx, row in enumerate(records):
-            for key in ["rfc_id", "rfc", "rfc_number"]:
-                if row.get(key, "").upper() == target:
-                    return idx + 2  # Offset for header row + 1-based indexing
+            if _extract_rfc_id(row) == target:
+                return idx + 2  # Row offset for header
         return None
     except Exception as e:
         logger.error(f"Error finding RFC {rfc}: {e}")
@@ -134,7 +138,6 @@ def find_rfc(rfc: str):
 def update_row_answers(row: int, technician: str, answers: list[str]) -> bool:
     try:
         sheet = get_worksheet()
-        # Col 4: Technician, Col 5: Status
         sheet.update_cell(row, 4, str(technician))
         sheet.update_cell(row, 5, "COMPLETED")
 

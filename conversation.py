@@ -18,6 +18,7 @@ from database import (
     get_rfcs_by_warehouse,
     find_rfc,
     update_row_answers,
+    # mark_rfc_as_completed, # Uncomment if using explicit completion status
 )
 
 from questions import QUESTIONS, TOTAL_QUESTIONS
@@ -157,7 +158,7 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if warehouse == "⬅️ Back to Main Menu":
         return await start(update, context)
 
-    # Validate that the warehouse choice is strictly from the allowed list
+    # Strict check: Warehouse must be selected via buttons
     if warehouse not in FIXED_WAREHOUSES:
         await update.message.reply_text(
             "⚠️ *Invalid Warehouse Selection.*\n"
@@ -171,7 +172,7 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
     role = context.user_data.get("role", "")
 
     # ------------------------------------------
-    # Technician Flow: Show active RFC list with options
+    # Technician Flow: Show active unused RFC list
     # ------------------------------------------
     if role == "🛠 Technician":
         available_rfcs = get_available_rfcs_by_warehouse(warehouse)
@@ -262,9 +263,12 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ------------------------------------------
         # Technician Flow
         # ------------------------------------------
-        if not rfc_exists(rfc):
+        available_rfcs = get_available_rfcs_by_warehouse(warehouse)
+        
+        # Check if RFC exists AND is still unused/available
+        if not rfc_exists(rfc) or rfc not in available_rfcs:
             await update.message.reply_text(
-                f"❌ RFC *{rfc}* not found under Warehouse *{warehouse}*.\n\n"
+                f"❌ RFC *{rfc}* is invalid or has already been completed.\n\n"
                 "Please select an option below:",
                 parse_mode="Markdown",
                 reply_markup=RFC_NOT_FOUND_KEYBOARD,
@@ -510,7 +514,7 @@ async def handle_edit_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 # ==========================================================
-# Finish Report
+# Finish Report (Marks RFC as completed / used)
 # ==========================================================
 
 async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -526,14 +530,19 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.clear()
             return RESTART
 
+        # Save technician answers to database
         update_row_answers(
             row=row,
             technician=technician_name,
             answers=answers,
         )
 
+        # Clear active RFC from context state so it cannot be re-submitted
+        context.user_data["rfc"] = None
+
         await update.message.reply_text(
-            f"✅ Report submitted successfully for Technician *{technician_name}*!\n\n"
+            f"✅ Report submitted successfully for Technician *{technician_name}*!\n"
+            f"RFC *{rfc}* has been marked as completed and removed from the active list.\n\n"
             f"Choose what to do next:",
             parse_mode="Markdown",
             reply_markup=AFTER_REPORT_KEYBOARD,
@@ -556,24 +565,26 @@ async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE
     choice = update.message.text.strip()
 
     if choice == "📋 Submit Another Report":
+        warehouse = context.user_data.get("warehouse", "")
+        available_rfcs = get_available_rfcs_by_warehouse(warehouse)
+
+        if available_rfcs:
+            rfc_list_formatted = "\n".join([f"• `{rfc}`" for rfc in available_rfcs])
+            msg = (
+                f"🏬 Warehouse: *{warehouse}*\n\n"
+                f"📋 *Available RFC IDs:*\n"
+                f"{rfc_list_formatted}\n\n"
+                f"👇 *Please type the RFC ID to proceed, or choose an option below:*"
+            )
+        else:
+            msg = f"🏬 Warehouse: *{warehouse}*\n⚠️ *No active RFCs available.* Please choose an option below:"
+
         await update.message.reply_text(
-            f"Current RFC ID: *{context.user_data.get('rfc')}*\n\n"
-            "Do you want to work on the same RFC or select a different one?",
+            msg,
             parse_mode="Markdown",
-            reply_markup=SAME_RFC_KEYBOARD,
+            reply_markup=TECHNICIAN_RFC_KEYBOARD,
         )
-        return AFTER_REPORT
-
-    if choice == "📑 Use Same RFC":
-        context.user_data["answers"] = []
-        context.user_data["question_index"] = 0
-        question = QUESTIONS[0][0]
-
-        await update.message.reply_text(
-            f"Question 1/{TOTAL_QUESTIONS}\n\n{question}:",
-            reply_markup=ReplyKeyboardRemove(),
-        )
-        return QUESTION
+        return RFC
 
     if choice == "📄 Use Different RFC":
         warehouse = context.user_data.get("warehouse", "")
@@ -588,7 +599,7 @@ async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"👇 *Please type the RFC ID to proceed, or choose an option below:*"
             )
         else:
-            msg = f"🏬 Warehouse: *{warehouse}*\n⚠️ *No active RFCs available.* Please type the RFC ID directly, or choose an option below:"
+            msg = f"🏬 Warehouse: *{warehouse}*\n⚠️ *No active RFCs available.* Please choose an option below:"
 
         await update.message.reply_text(
             msg,

@@ -124,3 +124,16 @@ RFC_NOT_FOUND_KEYBOARD = ReplyKeyboardMarkup(
     resize_keyboard=True,
     one_time_keyboard=True,
 )
+
+
+# ==========================================================
+# NO RFCS AVAILABLE KEYBOARD
+# ==========================================================
+
+NO_RFC_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["⬅️ Back to Main Menu"],
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)

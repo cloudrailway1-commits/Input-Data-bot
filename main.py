@@ -1,12 +1,16 @@
+import logging
 from telegram.ext import Application
 from config import BOT_TOKEN
 from conversation import conversation_handler
 
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
 
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # Register Conversation Handler
     app.add_handler(conversation_handler)
 
     print("=" * 50)

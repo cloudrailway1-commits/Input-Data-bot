@@ -250,14 +250,6 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Warehouse Engineer Flow
         # ------------------------------------------
         if role == "🏭 Warehouse Engineer":
-            if rfc_exists(rfc):
-                await update.message.reply_text(
-                    f"❌ RFC *{rfc}* already exists.\n\nPlease enter a different RFC ID:",
-                    parse_mode="Markdown",
-                    reply_markup=TECHNICIAN_RFC_KEYBOARD,
-                )
-                return RFC
-
             context.user_data["pending_rfc"] = rfc
 
             # Display confirmation preview for Warehouse Engineer
@@ -330,14 +322,6 @@ async def handle_register_preview(update: Update, context: ContextTypes.DEFAULT_
     rfc = context.user_data.get("pending_rfc", "")
 
     if text == "✅ Confirm & Submit":
-        if rfc_exists(rfc):
-            await update.message.reply_text(
-                f"❌ RFC *{rfc}* already exists.\n\nPlease enter a different RFC ID:",
-                parse_mode="Markdown",
-                reply_markup=TECHNICIAN_RFC_KEYBOARD,
-            )
-            return RFC
-
         add_rfc(
             rfc=rfc,
             warehouse=warehouse,
@@ -396,16 +380,8 @@ async def handle_edit_last_rfc(update: Update, context: ContextTypes.DEFAULT_TYP
     if new_rfc == "⬅️ BACK TO MAIN MENU":
         return await start(update, context)
 
-    if new_rfc == "🏬 CHANGE WAREHOUSE":
+    if new_rfc == "ESTATE CHANGE WAREHOUSE":
         return await show_warehouse_selection(update, context)
-
-    if rfc_exists(new_rfc) and new_rfc != last_rfc:
-        await update.message.reply_text(
-            f"❌ RFC *{new_rfc}* already exists in the database.\n\nPlease enter a different RFC ID:",
-            parse_mode="Markdown",
-            reply_markup=CANCEL_EDIT_KEYBOARD,
-        )
-        return EDIT_LAST_RFC
 
     # Replace old RFC entry with the updated one
     delete_rfc(last_rfc)

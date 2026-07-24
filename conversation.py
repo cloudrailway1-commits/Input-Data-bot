@@ -26,6 +26,7 @@ from questions import QUESTIONS, TOTAL_QUESTIONS
 from keyboards import (
     ROLE_KEYBOARD,
     FINISH_KEYBOARD,
+    REGISTER_PREVIEW_KEYBOARD,
     AFTER_REGISTER_KEYBOARD,
     AFTER_REPORT_KEYBOARD,
     RFC_NOT_FOUND_KEYBOARD,
@@ -47,6 +48,7 @@ logger = logging.getLogger(__name__)
     NAME,
     WAREHOUSE,
     RFC,
+    REGISTER_PREVIEW,
     QUESTION,
     RESTART,
     AFTER_REGISTER,
@@ -54,7 +56,7 @@ logger = logging.getLogger(__name__)
     RFC_NOT_FOUND,
     PREVIEW,
     EDIT_SELECT,
-) = range(11)
+) = range(12)
 
 
 # ==========================================================
@@ -203,7 +205,7 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
     existing_rfcs = get_rfcs_by_warehouse(warehouse)
     formatted_existing = ""
     if existing_rfcs:
-        formatted_existing = f"\n\nExisting RFCs in this Warehouse: " + ", ".join([f"`{r}`" for r in existing_rfcs])
+        formatted_existing = f"\n\nExisting RFCs in this Warehouse:\n" + "\n".join([f"• `{r}`" for r in existing_rfcs])
 
     await update.message.reply_text(
         f"🏬 Selected Warehouse: *{warehouse}*{formatted_existing}\n\n"
@@ -244,19 +246,25 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return RFC
 
-            add_rfc(
-                rfc=rfc,
-                warehouse=warehouse,
-                engineer_name=context.user_data.get("name", "Unknown"),
+            context.user_data["pending_rfc"] = rfc
+
+            # Display confirmation preview for Warehouse Engineer
+            preview_msg = (
+                f"📝 *NEW RFC REGISTRATION PREVIEW*\n"
+                f"----------------------------------\n"
+                f"👤 *Engineer:* {context.user_data.get('name', 'Unknown')}\n"
+                f"🏬 *Warehouse:* {warehouse}\n"
+                f"📄 *RFC ID:* `{rfc}`\n"
+                f"----------------------------------\n"
+                f"Please confirm or edit before submitting:"
             )
 
             await update.message.reply_text(
-                f"✅ RFC *{rfc}* successfully registered under Warehouse *{warehouse}*!\n\n"
-                f"Choose an option below:",
+                preview_msg,
                 parse_mode="Markdown",
-                reply_markup=AFTER_REGISTER_KEYBOARD,
+                reply_markup=REGISTER_PREVIEW_KEYBOARD,
             )
-            return AFTER_REGISTER
+            return REGISTER_PREVIEW
 
         # ------------------------------------------
         # Technician Flow
@@ -301,6 +309,68 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================================
+# Handle Warehouse Register Preview Options
+# ==========================================================
+
+async def handle_register_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    warehouse = context.user_data.get("warehouse", "")
+    rfc = context.user_data.get("pending_rfc", "")
+
+    if text == "✅ Confirm & Submit":
+        # Final check if created in the background
+        if rfc_exists(rfc):
+            await update.message.reply_text(
+                f"❌ RFC *{rfc}* already exists.\n\nPlease enter a different RFC ID:",
+                parse_mode="Markdown",
+                reply_markup=TECHNICIAN_RFC_KEYBOARD,
+            )
+            return RFC
+
+        add_rfc(
+            rfc=rfc,
+            warehouse=warehouse,
+            engineer_name=context.user_data.get("name", "Unknown"),
+        )
+
+        # Retrieve the updated RFC list for this warehouse
+        all_rfcs = get_rfcs_by_warehouse(warehouse)
+        formatted_list = "\n".join([f"• `{r}`" for r in all_rfcs]) if all_rfcs else "None"
+
+        await update.message.reply_text(
+            f"✅ RFC *{rfc}* successfully registered under Warehouse *{warehouse}*!\n\n"
+            f"📋 *Updated RFC List in {warehouse}:*\n"
+            f"{formatted_list}\n\n"
+            f"Choose an option below:",
+            parse_mode="Markdown",
+            reply_markup=AFTER_REGISTER_KEYBOARD,
+        )
+        return AFTER_REGISTER
+
+    if text == "✏️ Edit RFC ID":
+        await update.message.reply_text(
+            f"✏️ Please type the new RFC ID for Warehouse *{warehouse}*:",
+            parse_mode="Markdown",
+            reply_markup=TECHNICIAN_RFC_KEYBOARD,
+        )
+        return RFC
+
+    if text == "❌ Cancel Registration":
+        context.user_data.pop("pending_rfc", None)
+        await update.message.reply_text(
+            "❌ RFC registration cancelled.",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return await start(update, context)
+
+    await update.message.reply_text(
+        "Please select an option from the keyboard below.",
+        reply_markup=REGISTER_PREVIEW_KEYBOARD,
+    )
+    return REGISTER_PREVIEW
+
+
+# ==========================================================
 # Handle RFC Not Found Options
 # ==========================================================
 
@@ -332,8 +402,13 @@ async def handle_after_register(update: Update, context: ContextTypes.DEFAULT_TY
 
     if choice == "➕ Add More RFC":
         warehouse = context.user_data.get("warehouse")
+        existing_rfcs = get_rfcs_by_warehouse(warehouse)
+        formatted_existing = ""
+        if existing_rfcs:
+            formatted_existing = f"\n\nExisting RFCs in this Warehouse:\n" + "\n".join([f"• `{r}`" for r in existing_rfcs])
+
         await update.message.reply_text(
-            f"Adding another RFC under Warehouse: *{warehouse}*\n\n📄 Enter new RFC ID:",
+            f"Adding another RFC under Warehouse: *{warehouse}*{formatted_existing}\n\n📄 Enter new RFC ID:",
             parse_mode="Markdown",
             reply_markup=TECHNICIAN_RFC_KEYBOARD,
         )
@@ -563,7 +638,6 @@ async def handle_after_report(update: Update, context: ContextTypes.DEFAULT_TYPE
     choice = update.message.text.strip()
 
     if choice in ["📋 Submit Another Report", "📄 Use Different RFC"]:
-        # Reset state to force picking a brand-new RFC ID
         context.user_data.pop("rfc", None)
         context.user_data["answers"] = []
         context.user_data["question_index"] = 0
@@ -643,6 +717,7 @@ conversation_handler = ConversationHandler(
         NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
         WAREHOUSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, select_warehouse)],
         RFC: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_rfc)],
+        REGISTER_PREVIEW: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_register_preview)],
         QUESTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_questions)],
         RESTART: [MessageHandler(filters.TEXT & ~filters.COMMAND, restart_menu)],
         AFTER_REGISTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_after_register)],

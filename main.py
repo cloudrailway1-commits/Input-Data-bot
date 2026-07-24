@@ -13,7 +13,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Set your Bot Token directly or load from environment variables
-BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN_HERE"
+BOT_TOKEN = "8826049165:AAEogz6cs-P-W5EqpZA3xFN7ho309ARet_0"
 
 
 def main():

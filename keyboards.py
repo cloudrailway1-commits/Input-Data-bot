@@ -32,6 +32,7 @@ ROLE_KEYBOARD = ReplyKeyboardMarkup(
     one_time_keyboard=True,
 )
 
+# Added preview keyboard for Warehouse Engineer registration
 REGISTER_PREVIEW_KEYBOARD = ReplyKeyboardMarkup(
     [["✅ Confirm & Submit"], ["✏️ Edit RFC ID", "❌ Cancel Registration"]],
     resize_keyboard=True,
@@ -40,7 +41,7 @@ REGISTER_PREVIEW_KEYBOARD = ReplyKeyboardMarkup(
 
 AFTER_REGISTER_KEYBOARD = ReplyKeyboardMarkup(
     [
-        ["➕ Add More RFC", "✏️ Edit Last RFC"],
+        ["➕ Add More RFC"],
         ["🏬 Change Warehouse", "⬅️ Back to Main Menu"],
         ["🏁 Finish Session"],
     ],

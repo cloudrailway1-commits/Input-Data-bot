@@ -207,7 +207,7 @@ def add_rfc(rfc: str, warehouse: str, engineer_name: str = ""):
     Add a new RFC row under a specific Warehouse Category.
     """
     worksheet.append_row([
-        rfc.upper(),        # A = RFC
+        rfc(),        # A = RFC
         warehouse,          # B = Warehouse / Category
         "",                 # C = Technician
         "",                 # D = Drop Core

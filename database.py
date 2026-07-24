@@ -44,7 +44,7 @@ def find_rfc(rfc: str):
     values = worksheet.col_values(1)
 
     for row, value in enumerate(values, start=1):
-        if value.strip().upper() == rfc.strip().upper():
+        if value.strip() == rfc.strip().upper():
             return row
 
     return None
@@ -207,7 +207,7 @@ def add_rfc(rfc: str, warehouse: str, engineer_name: str = ""):
     Add a new RFC row under a specific Warehouse Category.
     """
     worksheet.append_row([
-        rfc(),        # A = RFC
+        rfc,        # A = RFC
         warehouse,          # B = Warehouse / Category
         "",                 # C = Technician
         "",                 # D = Drop Core

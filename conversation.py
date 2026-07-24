@@ -194,7 +194,7 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = (
                 f"🏬 Warehouse: *{warehouse}*\n"
                 f"⚠️ *No active RFCs currently available for this warehouse.*\n\n"
-                f"Please type the RFC ID manually, or choose an option below:"
+                f"Please contact warehouse first."
             )
         else:
             rfc_list_formatted = "\n".join([f"• `{rfc}`" for rfc in available_rfcs])

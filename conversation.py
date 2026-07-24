@@ -2,6 +2,7 @@ import logging
 from telegram import (
     Update,
     ReplyKeyboardRemove,
+    ReplyKeyboardMarkup,
 )
 from telegram.ext import (
     ConversationHandler,
@@ -27,7 +28,6 @@ from keyboards import (
     ROLE_KEYBOARD,
     FINISH_KEYBOARD,
     REGISTER_PREVIEW_KEYBOARD,
-    AFTER_REGISTER_KEYBOARD,
     AFTER_REPORT_KEYBOARD,
     RFC_NOT_FOUND_KEYBOARD,
     PREVIEW_KEYBOARD,
@@ -38,6 +38,17 @@ from keyboards import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Dynamic Keyboard for Warehouse Engineer After Register (Includes Edit Last RFC option)
+AFTER_REGISTER_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["➕ Add More RFC", "✏️ Edit Last RFC"],
+        ["🏬 Change Warehouse", "⬅️ Back to Main Menu"],
+        ["🏁 Finish Session"],
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)
 
 # ==========================================================
 # Conversation States
@@ -172,11 +183,11 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["warehouse"] = warehouse
     role = context.user_data.get("role", "")
 
-    # Fetch ONLY active/unused RFCs for this warehouse
+    # Retrieve active/unused RFCs only
     available_rfcs = get_available_rfcs_by_warehouse(warehouse)
 
     # ------------------------------------------
-    # Technician Flow
+    # Technician Flow: Show active RFC list
     # ------------------------------------------
     if role == "🛠 Technician":
         if not available_rfcs:
@@ -202,7 +213,7 @@ async def select_warehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return RFC
 
     # ------------------------------------------
-    # Warehouse Engineer Flow
+    # Warehouse Engineer Flow: Show active RFC list
     # ------------------------------------------
     formatted_available = ""
     if available_rfcs:
@@ -241,7 +252,7 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if role == "🏭 Warehouse Engineer":
             if rfc_exists(rfc):
                 await update.message.reply_text(
-                    f"❌ RFC *{rfc}* already exists in the system.\n\nPlease enter a different RFC ID:",
+                    f"❌ RFC *{rfc}* already exists.\n\nPlease enter a different RFC ID:",
                     parse_mode="Markdown",
                     reply_markup=TECHNICIAN_RFC_KEYBOARD,
                 )
@@ -249,6 +260,7 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             context.user_data["pending_rfc"] = rfc
 
+            # Display confirmation preview for Warehouse Engineer
             preview_msg = (
                 f"📝 *NEW RFC REGISTRATION PREVIEW*\n"
                 f"----------------------------------\n"
@@ -320,7 +332,7 @@ async def handle_register_preview(update: Update, context: ContextTypes.DEFAULT_
     if text == "✅ Confirm & Submit":
         if rfc_exists(rfc):
             await update.message.reply_text(
-                f"❌ RFC *{rfc}* already exists in the system.\n\nPlease enter a different RFC ID:",
+                f"❌ RFC *{rfc}* already exists.\n\nPlease enter a different RFC ID:",
                 parse_mode="Markdown",
                 reply_markup=TECHNICIAN_RFC_KEYBOARD,
             )
@@ -332,9 +344,10 @@ async def handle_register_preview(update: Update, context: ContextTypes.DEFAULT_
             engineer_name=context.user_data.get("name", "Unknown"),
         )
 
+        # Store last added RFC for quick editing if needed later
         context.user_data["last_added_rfc"] = rfc
 
-        # Show only active/available RFCs (filters out any submitted ones)
+        # Retrieve active/available RFC list for this warehouse
         active_rfcs = get_available_rfcs_by_warehouse(warehouse)
         formatted_list = "\n".join([f"• `{r}`" for r in active_rfcs]) if active_rfcs else "None"
 
@@ -388,12 +401,13 @@ async def handle_edit_last_rfc(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if rfc_exists(new_rfc) and new_rfc != last_rfc:
         await update.message.reply_text(
-            f"❌ RFC *{new_rfc}* already exists in the database.\n\nPlease enter a different replacement RFC ID:",
+            f"❌ RFC *{new_rfc}* already exists in the database.\n\nPlease enter a different RFC ID:",
             parse_mode="Markdown",
             reply_markup=CANCEL_EDIT_KEYBOARD,
         )
         return EDIT_LAST_RFC
 
+    # Replace old RFC entry with the updated one
     delete_rfc(last_rfc)
     add_rfc(
         rfc=new_rfc,
@@ -403,7 +417,7 @@ async def handle_edit_last_rfc(update: Update, context: ContextTypes.DEFAULT_TYP
 
     context.user_data["last_added_rfc"] = new_rfc
 
-    # Show only active/available RFCs
+    # Get active/available RFC list
     active_rfcs = get_available_rfcs_by_warehouse(warehouse)
     formatted_list = "\n".join([f"• `{r}`" for r in active_rfcs]) if active_rfcs else "None"
 

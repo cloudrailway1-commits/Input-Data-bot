@@ -242,7 +242,8 @@ async def ask_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if text == "🏬 Change Warehouse":
             return await show_warehouse_selection(update, context)
 
-        rfc = text.upper()
+        # Preserves exact case as entered by user
+        rfc = text
         role = context.user_data.get("role", "")
         warehouse = context.user_data.get("warehouse", "")
 
@@ -373,15 +374,18 @@ async def handle_register_preview(update: Update, context: ContextTypes.DEFAULT_
 # ==========================================================
 
 async def handle_edit_last_rfc(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    new_rfc = update.message.text.strip().upper()
+    raw_text = update.message.text.strip()
     warehouse = context.user_data.get("warehouse", "")
     last_rfc = context.user_data.get("last_added_rfc", "")
 
-    if new_rfc == "⬅️ BACK TO MAIN MENU":
+    if raw_text == "⬅️ Back to Main Menu":
         return await start(update, context)
 
-    if new_rfc == "ESTATE CHANGE WAREHOUSE":
+    if raw_text == "🏬 Change Warehouse":
         return await show_warehouse_selection(update, context)
+
+    # Preserves exact case as entered by user
+    new_rfc = raw_text
 
     # Replace old RFC entry with the updated one
     delete_rfc(last_rfc)
